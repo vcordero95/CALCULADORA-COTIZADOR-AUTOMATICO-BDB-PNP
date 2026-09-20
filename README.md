@@ -29,11 +29,25 @@ docs/
 
 ## Cómo se calcula la tarifa
 
-1. **Costo variable** = Costo de gasolina por km (según tipo de unidad) × kilómetros de la ruta.
-2. **Costo fijo mensual** = Sueldo + Renta de la unidad (según tipo de unidad).
+1. **Costo variable** = Costo de gasolina por km (según Rendimiento y si la unidad usa Diesel o Gasolina) × kilómetros de la ruta.
+2. **Costo fijo mensual** = Sueldo Mensual Total + Renta Mensual + Mantenimiento Mensual de la unidad.
 3. **Costo fijo prorrateado** = Costo fijo mensual ÷ viajes al mes.
 4. **Costo total de la ruta** = Costo variable + Costo fijo prorrateado + Casetas.
 5. **Tarifa piso** = Costo total ÷ (1 − Margen).
+
+### Cómo se arma el Sueldo Mensual Total
+
+En la Hoja Maestra, el sueldo se captura por periodo (Semanal o Quincenal),
+y el resto se calcula solo:
+
+- **Fiscal**: monto fijo según el periodo (referencia editable en `Hoja Maestra!Q3:R4`, no cambia con el sueldo capturado).
+- **Complemento** = Sueldo − Fiscal.
+- **IMSS** = 30% de Fiscal.
+- **Comisiones** = 5% del Complemento.
+- **Sueldo Mensual Total** = (Sueldo + IMSS + Comisiones) × 4.33 si es Semanal, o × 2 si es Quincenal.
+
+El precio de Diesel y Gasolina ($/L) también es editable en `Hoja Maestra!Q1:R2`
+y aplica a todas las unidades según su Tipo de Combustible.
 
 ## Puesta en marcha (Google Sheets)
 
@@ -44,7 +58,9 @@ docs/
    para hacer `clasp push` apuntando este proyecto a tu spreadsheet).
 4. Recarga el spreadsheet. Aparecerá el menú **Cotizador BDB**.
 5. Menú **Cotizador BDB → Inicializar hojas**. Esto crea:
-   - **Hoja Maestra**: catálogo de tipos de unidad con sueldo, gasolina/km y renta.
+   - **Hoja Maestra**: catálogo de tipos de unidad con renta, mantenimiento,
+     rendimiento/tipo de combustible y nómina (sueldo, periodicidad, fiscal,
+     complemento, IMSS, comisiones).
    - **Cotizador**: captura de rutas nuevas (unidad por lista desplegable, km,
      viajes al mes, casetas, margen) con el cálculo automático de costo y
      tarifa piso.
