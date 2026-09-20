@@ -1,0 +1,7 @@
+
+# Apps Script / clasp
+.clasp.json
+node_modules/
+
+# macOS
+.DS_Store
