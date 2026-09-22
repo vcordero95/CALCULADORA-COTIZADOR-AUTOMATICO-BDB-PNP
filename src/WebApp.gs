@@ -1,39 +1,62 @@
 /**
- * Sirve el dashboard "Cotizador BDB" como Web App independiente. Acceso
- * restringido al dominio de BDB (ver src/appsscript.json: webapp.access).
+ * Sirve el dashboard como Web App independiente. Acceso restringido al
+ * dominio de BDB (ver src/appsscript.json: webapp.access). Por default
+ * sirve el dashboard de Comercial (solicitud de tarifa de cliente);
+ * agregando ?vista=interna a la URL se sirve el dashboard de costos de
+ * uso interno.
  */
 function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('Dashboard')
+  var vista = e && e.parameter && e.parameter.vista;
+  var archivo = vista === 'interna' ? 'Dashboard' : 'DashboardComercial';
+  return HtmlService.createHtmlOutputFromFile(archivo)
     .setTitle('Cotizador BDB')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /**
- * Catalogos para llenar los dropdowns del dashboard: Tipo de Unidad y
- * Puesto / Categoria de Sueldo, tal como estan capturados en la Hoja
- * Maestra (cada uno en su propia tabla, independiente entre si).
+ * Catalogos para el dashboard interno (costos): Tipo de Unidad y Puesto /
+ * Categoria de Sueldo, cada uno de su propio catalogo.
  */
 function obtenerCatalogos() {
-  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_MAESTRA);
-  if (!hoja) {
-    throw new Error('No existe la hoja "Hoja Maestra". Ejecuta Cotizador BDB > Inicializar hojas.');
-  }
-
   var soloLlenos = function (valor) { return valor !== ''; };
 
-  var unidades = hoja.getRange(FILA_DATOS_MAESTRA, 1, FILAS_MAESTRA, 1)
+  var unidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 1)
     .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
-  var puestos = hoja.getRange(FILA_DATOS_MAESTRA, 10, FILAS_MAESTRA, 1)
+  var puestos = obtenerHojaNomina_().getRange(2, 1, FILAS_CATALOGO, 1)
     .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
   return { unidades: unidades, puestos: puestos };
 }
 
 /**
- * Calcula una cotizacion desde el dashboard, reusando COTIZAR() (la misma
- * formula que usa la hoja Cotizador). El margen llega del formulario en
- * porcentaje (20) y aqui se convierte a fraccion (0.20).
+ * Catalogos para el dashboard de Comercial: Zona/Ciudad y Tipo de Unidad
+ * salen de sus catalogos; Tipo de Ruta, Frecuencia y Tipo de Cobro son
+ * categorias fijas del negocio.
+ */
+function obtenerCatalogosComercial() {
+  var soloLlenos = function (valor) { return valor !== ''; };
+
+  var zonas = SpreadsheetApp.getActive().getSheetByName(HOJA_ZONAS)
+    .getRange(2, 1, FILAS_CATALOGO, 1).getValues()
+    .map(function (fila) { return fila[0]; }).filter(soloLlenos);
+
+  var unidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 1)
+    .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
+
+  return {
+    zonas: zonas,
+    unidades: unidades,
+    tiposRuta: TIPOS_RUTA,
+    frecuencias: FRECUENCIAS,
+    tiposCobro: TIPOS_COBRO
+  };
+}
+
+/**
+ * Calcula una cotizacion desde el dashboard interno, reusando COTIZAR()
+ * (la misma formula que usa la hoja Cotizador). El margen llega del
+ * formulario en porcentaje (20) y aqui se convierte a fraccion (0.20).
  */
 function calcularCotizacionWeb(datos) {
   var margenFraccion = Number(datos.margen) / 100;
@@ -52,9 +75,8 @@ function calcularCotizacionWeb(datos) {
 }
 
 /**
- * Guarda la cotizacion calculada como un renglon nuevo en la hoja
- * Cotizador, con los valores ya resueltos (no formulas), para que quede
- * como un registro fijo de lo que se cotizo al momento de la solicitud.
+ * Guarda la cotizacion calculada (dashboard interno) como un renglon
+ * nuevo en la hoja Cotizador, con los valores ya resueltos (no formulas).
  */
 function guardarCotizacionWeb(datos, resultado) {
   var sheet = SpreadsheetApp.getActive().getSheetByName(COTIZADOR);
@@ -84,19 +106,64 @@ function guardarCotizacionWeb(datos, resultado) {
 function siguienteFilaLibreCotizador_(sheet) {
   var columna = sheet.getRange(2, 3, FILAS_COTIZADOR, 1).getValues();
   for (var i = 0; i < columna.length; i++) {
-    if (columna[i][0] === '') {
-      return 2 + i;
-    }
+    if (columna[i][0] === '') return 2 + i;
   }
   return 2 + FILAS_COTIZADOR;
 }
 
 /**
- * Atajo desde el menu de la hoja de calculo para abrir el dashboard
+ * Calcula una solicitud de tarifa de cliente desde el dashboard de
+ * Comercial, reusando SOLICITAR_TARIFA(). El margen llega del formulario
+ * en porcentaje (20) y aqui se convierte a fraccion (0.20).
+ */
+function calcularSolicitudWeb(datos) {
+  var margenFraccion = Number(datos.margen) / 100;
+  return SOLICITAR_TARIFA(
+    datos.tipoRuta, datos.zona, datos.tipoUnidad, datos.frecuencia, datos.km,
+    datos.tipoCobro, datos.cantidad, !!datos.requiereAuxiliar, margenFraccion
+  );
+}
+
+/**
+ * Guarda la solicitud calculada (dashboard de Comercial) como un renglon
+ * nuevo en la hoja Solicitudes, con los valores ya resueltos.
+ */
+function guardarSolicitudWeb(datos, resultado) {
+  var sheet = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
+  if (!sheet) {
+    throw new Error('No existe la hoja "Solicitudes". Ejecuta Cotizador BDB > Inicializar hojas.');
+  }
+
+  var fila = sheet.getLastRow() + 1;
+  var margenFraccion = Number(datos.margen) / 100;
+
+  sheet.getRange(fila, 1, 1, 25).setValues([[
+    new Date(), datos.rutaCliente || '', datos.tipoRuta, datos.zona, datos.tipoUnidad,
+    datos.frecuencia, datos.volumen || '', Number(datos.km) || 0, datos.tipoCobro, Number(datos.cantidad) || '',
+    datos.requiereAuxiliar ? 'Si' : 'No',
+    resultado.puestoPrincipal, resultado.puestoAuxiliar, resultado.costoCasetas, resultado.viajesMes,
+    resultado.sueldoMensual, resultado.rentaMensual, resultado.mantenimientoMensual, resultado.costoGasolinaKm,
+    resultado.costoVariable, resultado.costoFijoProrrateado, resultado.costoTotal, margenFraccion,
+    resultado.tarifaPiso, resultado.tarifaPorUnidad
+  ]]);
+
+  return true;
+}
+
+/**
+ * Atajos desde el menu de la hoja de calculo para abrir cada dashboard
  * publicado, sin tener que buscar la URL de la implementacion.
  */
-function abrirDashboard() {
-  var url = ScriptApp.getService().getUrl();
+function abrirDashboardComercial() {
+  abrirUrl_(ScriptApp.getService().getUrl());
+}
+
+function abrirDashboardInterno() {
+  var base = ScriptApp.getService().getUrl();
+  abrirUrl_(base ? base + '?vista=interna' : null);
+}
+
+function abrirUrl_(url) {
   var ui = SpreadsheetApp.getUi();
   if (!url) {
     ui.alert('Aun no hay una version publicada. Implementar > Nueva implementacion > Aplicacion web.');

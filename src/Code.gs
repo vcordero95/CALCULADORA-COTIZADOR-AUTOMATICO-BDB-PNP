@@ -5,21 +5,9 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cotizador BDB')
     .addItem('Inicializar hojas', 'initializeProject')
-    .addItem('Abrir dashboard', 'abrirDashboard')
+    .addItem('Abrir dashboard Comercial', 'abrirDashboardComercial')
+    .addItem('Abrir dashboard interno (costos)', 'abrirDashboardInterno')
     .addToUi();
-}
-
-/**
- * Crea (o reinicia) la Hoja Maestra y la hoja Cotizador. Se corre una vez
- * al preparar el spreadsheet, o cuando se quiera regresar a la estructura
- * base.
- */
-function initializeProject() {
-  var hojaMaestra = setupHojaMaestra_();
-  setupCotizador_(hojaMaestra);
-  SpreadsheetApp.getUi().alert(
-    'Listo. Revisa "Hoja Maestra" (costos) y "Cotizador" (captura de rutas).'
-  );
 }
 
 /**

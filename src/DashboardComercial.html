@@ -24,6 +24,7 @@
     }
     label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
     label:first-child { margin-top: 0; }
+    .ayuda { font-weight: 400; color: #5a6b85; font-size: 11px; }
     select, input {
       width: 100%;
       padding: 9px 10px;
@@ -55,6 +56,7 @@
       color: #ffffff;
       margin-bottom: 14px;
     }
+    .tarifa-piso.unidad { background: #2b4a3f; }
     .tarifa-piso .valor { font-size: 30px; font-weight: 700; }
     .tarifa-piso .etiqueta { font-size: 13px; opacity: 0.85; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -78,18 +80,38 @@
       margin-top: 10px;
       text-align: center;
     }
+    .mensaje-pendiente {
+      background: #fff8e1;
+      border: 1px solid #f2d98d;
+      color: #7a5c00;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-top: 12px;
+    }
     #seccion-resultado, #seccion-error { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Cotizador BDB</h1>
-    <p class="subtitulo">Vista interna · costo y tarifa por Tipo de Unidad y Puesto/Sueldo</p>
+    <p class="subtitulo">Solicitud / revisión de tarifa de cliente</p>
 
     <div class="card">
-      <form id="form-cotizacion">
-        <label for="rutaCliente">Ruta / Cliente</label>
-        <input type="text" id="rutaCliente" placeholder="Ej. CDMX - Monterrey / Cliente X">
+      <form id="form-solicitud">
+        <label for="rutaCliente">Cliente / Ruta</label>
+        <input type="text" id="rutaCliente" placeholder="Ej. Cliente X - CDMX a Monterrey">
+
+        <div class="fila-doble">
+          <div>
+            <label for="tipoRuta">Tipo de Ruta</label>
+            <select id="tipoRuta" required></select>
+          </div>
+          <div>
+            <label for="zona">Zona / Ciudad</label>
+            <select id="zona" required></select>
+          </div>
+        </div>
 
         <div class="fila-doble">
           <div>
@@ -97,35 +119,46 @@
             <select id="tipoUnidad" required></select>
           </div>
           <div>
-            <label for="puesto">Puesto / Categoría de Sueldo</label>
-            <select id="puesto" required></select>
+            <label for="frecuencia">Frecuencia <span class="ayuda">(NxM = N días de cada M)</span></label>
+            <select id="frecuencia" required></select>
           </div>
         </div>
 
         <div class="fila-doble">
+          <div>
+            <label for="volumen">Volumen</label>
+            <input type="text" id="volumen" placeholder="Ej. 12 ton / 30 m3">
+          </div>
           <div>
             <label for="km">Kilómetros</label>
             <input type="number" id="km" min="0" step="0.1" required>
           </div>
+        </div>
+
+        <div class="fila-doble">
           <div>
-            <label for="paradas">Paradas</label>
-            <input type="number" id="paradas" min="0" step="1" value="0">
+            <label for="tipoCobro">Tipo de Cobro</label>
+            <select id="tipoCobro" required></select>
+          </div>
+          <div>
+            <label for="cantidad">Cantidad <span class="ayuda">(paquetes/paradas/palets)</span></label>
+            <input type="number" id="cantidad" min="0" step="1" value="0">
           </div>
         </div>
 
         <div class="fila-doble">
           <div>
-            <label for="viajesMes">Viajes al mes</label>
-            <input type="number" id="viajesMes" min="1" step="1" required>
+            <label for="requiereAuxiliar">¿Requiere auxiliar?</label>
+            <select id="requiereAuxiliar">
+              <option value="no">No</option>
+              <option value="si">Sí</option>
+            </select>
           </div>
           <div>
-            <label for="casetas">Costo de casetas ($)</label>
-            <input type="number" id="casetas" min="0" step="0.01" value="0">
+            <label for="margen">Margen objetivo (%)</label>
+            <input type="number" id="margen" min="0" max="99" step="0.1" value="20">
           </div>
         </div>
-
-        <label for="margen">Margen objetivo (%)</label>
-        <input type="number" id="margen" min="0" max="99" step="0.1" value="20">
 
         <button type="submit" id="btn-calcular">Calcular tarifa</button>
       </form>
@@ -133,20 +166,25 @@
 
     <div class="card" id="seccion-resultado">
       <div class="tarifa-piso">
-        <div class="etiqueta">Tarifa piso</div>
+        <div class="etiqueta">Tarifa piso (ruta completa)</div>
         <div class="valor" id="valor-tarifa-piso">$0.00</div>
       </div>
+      <div class="tarifa-piso unidad" id="bloque-tarifa-unidad" style="display:none;">
+        <div class="etiqueta" id="etiqueta-tarifa-unidad">Tarifa por unidad</div>
+        <div class="valor" id="valor-tarifa-unidad">$0.00</div>
+      </div>
       <table>
+        <tr><td>Puesto principal</td><td id="r-puestoPrincipal"></td></tr>
+        <tr><td>Puesto auxiliar</td><td id="r-puestoAuxiliar"></td></tr>
+        <tr><td>Costo casetas (zona)</td><td id="r-costoCasetas"></td></tr>
+        <tr><td>Viajes al mes (frecuencia)</td><td id="r-viajesMes"></td></tr>
         <tr><td>Costo variable (gasolina)</td><td id="r-costoVariable"></td></tr>
         <tr><td>Costo fijo prorrateado</td><td id="r-costoFijoProrrateado"></td></tr>
         <tr><td>Costo total de la ruta</td><td id="r-costoTotal"></td></tr>
-        <tr><td>Sueldo mensual (puesto)</td><td id="r-sueldoMensual"></td></tr>
-        <tr><td>Renta mensual (unidad)</td><td id="r-rentaMensual"></td></tr>
-        <tr><td>Mantenimiento mensual (unidad)</td><td id="r-mantenimientoMensual"></td></tr>
-        <tr><td>Costo gasolina por km</td><td id="r-costoGasolinaKm"></td></tr>
       </table>
-      <button type="button" class="secundario" id="btn-guardar">Guardar cotización</button>
-      <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Cotización guardada en la hoja Cotizador.</div>
+      <div class="mensaje-pendiente">Comparación con tarifa vigente: pendiente de cargar el listado.</div>
+      <button type="button" class="secundario" id="btn-guardar">Guardar solicitud</button>
+      <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Solicitud guardada en la hoja Solicitudes.</div>
     </div>
 
     <div class="card" id="seccion-error">
@@ -174,11 +212,14 @@
     function cargarCatalogos() {
       google.script.run
         .withSuccessHandler(function (catalogos) {
+          poblarSelect(document.getElementById('tipoRuta'), catalogos.tiposRuta);
+          poblarSelect(document.getElementById('zona'), catalogos.zonas);
           poblarSelect(document.getElementById('tipoUnidad'), catalogos.unidades);
-          poblarSelect(document.getElementById('puesto'), catalogos.puestos);
+          poblarSelect(document.getElementById('frecuencia'), catalogos.frecuencias);
+          poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
         })
         .withFailureHandler(mostrarError)
-        .obtenerCatalogos();
+        .obtenerCatalogosComercial();
     }
 
     function mostrarError(error) {
@@ -193,29 +234,43 @@
       document.getElementById('mensaje-guardado').style.display = 'none';
 
       document.getElementById('valor-tarifa-piso').textContent = money(resultado.tarifaPiso);
+
+      var tipoCobro = ultimoCalculo.datos.tipoCobro;
+      var bloqueUnidad = document.getElementById('bloque-tarifa-unidad');
+      if (tipoCobro !== 'Por Ruta') {
+        bloqueUnidad.style.display = 'block';
+        document.getElementById('etiqueta-tarifa-unidad').textContent = 'Tarifa ' + tipoCobro.toLowerCase();
+        document.getElementById('valor-tarifa-unidad').textContent = money(resultado.tarifaPorUnidad);
+      } else {
+        bloqueUnidad.style.display = 'none';
+      }
+
+      document.getElementById('r-puestoPrincipal').textContent = resultado.puestoPrincipal;
+      document.getElementById('r-puestoAuxiliar').textContent = resultado.puestoAuxiliar || '—';
+      document.getElementById('r-costoCasetas').textContent = money(resultado.costoCasetas);
+      document.getElementById('r-viajesMes').textContent = Number(resultado.viajesMes).toFixed(1);
       document.getElementById('r-costoVariable').textContent = money(resultado.costoVariable);
       document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
       document.getElementById('r-costoTotal').textContent = money(resultado.costoTotal);
-      document.getElementById('r-sueldoMensual').textContent = money(resultado.sueldoMensual);
-      document.getElementById('r-rentaMensual').textContent = money(resultado.rentaMensual);
-      document.getElementById('r-mantenimientoMensual').textContent = money(resultado.mantenimientoMensual);
-      document.getElementById('r-costoGasolinaKm').textContent = money(resultado.costoGasolinaKm);
 
       ultimoCalculo = { datos: ultimoCalculo.datos, resultado: resultado };
       document.getElementById('btn-calcular').disabled = false;
       document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
     }
 
-    document.getElementById('form-cotizacion').addEventListener('submit', function (ev) {
+    document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var datos = {
         rutaCliente: document.getElementById('rutaCliente').value,
+        tipoRuta: document.getElementById('tipoRuta').value,
+        zona: document.getElementById('zona').value,
         tipoUnidad: document.getElementById('tipoUnidad').value,
-        puesto: document.getElementById('puesto').value,
+        frecuencia: document.getElementById('frecuencia').value,
+        volumen: document.getElementById('volumen').value,
         km: Number(document.getElementById('km').value),
-        paradas: Number(document.getElementById('paradas').value),
-        viajesMes: Number(document.getElementById('viajesMes').value),
-        casetas: Number(document.getElementById('casetas').value),
+        tipoCobro: document.getElementById('tipoCobro').value,
+        cantidad: Number(document.getElementById('cantidad').value),
+        requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si',
         margen: Number(document.getElementById('margen').value)
       };
       ultimoCalculo = { datos: datos, resultado: null };
@@ -230,7 +285,7 @@
           document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
           mostrarError(error);
         })
-        .calcularCotizacionWeb(datos);
+        .calcularSolicitudWeb(datos);
     });
 
     document.getElementById('btn-guardar').addEventListener('click', function () {
@@ -241,15 +296,15 @@
       google.script.run
         .withSuccessHandler(function () {
           boton.disabled = false;
-          boton.textContent = 'Guardar cotización';
+          boton.textContent = 'Guardar solicitud';
           document.getElementById('mensaje-guardado').style.display = 'block';
         })
         .withFailureHandler(function (error) {
           boton.disabled = false;
-          boton.textContent = 'Guardar cotización';
+          boton.textContent = 'Guardar solicitud';
           mostrarError(error);
         })
-        .guardarCotizacionWeb(ultimoCalculo.datos, ultimoCalculo.resultado);
+        .guardarSolicitudWeb(ultimoCalculo.datos, ultimoCalculo.resultado);
     });
 
     cargarCatalogos();
