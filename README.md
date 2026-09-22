@@ -21,15 +21,37 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   Puesto/Categoría de Sueldo. Es la hoja **Cotizador** y el dashboard
   `?vista=interna`.
 - **Dashboard de Comercial (solicitud de tarifa de cliente)** — Comercial
-  no ve costos: captura Tipo de Ruta, Zona/Ciudad, Tipo de Unidad,
+  no ve costos: captura Cliente, Tipo de Ruta, Zona/Ciudad, Tipo de Unidad,
   Frecuencia, Volumen, km, Tipo de Cobro y si necesita auxiliar. El
   sistema resuelve solo el Puesto (y el Auxiliar), el costo de casetas por
-  zona y los viajes al mes por frecuencia, y calcula la tarifa. Es la hoja
+  zona y los viajes al mes por frecuencia, calcula la tarifa, y la muestra
+  junto a las tarifas vigentes registradas para ese cliente. Es la hoja
   **Solicitudes** y el dashboard por default (sin `?vista=`).
 
 La tarifa para proveedores de red externa **no** está incluida todavía
-(queda para después, como marca el brief original). La comparación contra
-tarifas vigentes también queda pendiente hasta cargar ese listado.
+(queda para después, como marca el brief original).
+
+### Comparación contra tarifas vigentes
+
+- El dropdown **Cliente** sale de `Tarifas Vigentes` (un import del
+  tarifario real de clientes) más la opción fija **"Nuevo Cliente"** (para
+  cotizaciones de clientes que aún no tienen tarifa registrada — en ese
+  caso no se muestra ninguna comparación).
+- Para cualquier cliente, al calcular se listan sus tarifas vigentes
+  registradas (Last Mile, Estado Vigencia = Activa) como referencia — no
+  es un match exacto automático, porque los nombres de vehículo y rutas en
+  el tarifario real no siempre calzan literal con los catálogos internos.
+- Para **Mercado Libre + Por Ruta** (ruta dedicada), además aparece un
+  dropdown de **Estación MELI**: con esa estación (nodo) + Tipo de Unidad
+  + km sí se calcula una tarifa vigente exacta contra `MELI Tarifas`
+  (Nivel L1-L4 × rango de km), usando el nivel de esa estación en
+  `MELI Estaciones`.
+- **Line Haul** (modalidades RT/OW) es un negocio distinto al de rutas
+  dedicadas/Last Mile que cubre este cotizador, y queda fuera de esta
+  comparación.
+- `Tarifas Vigentes`, `MELI Estaciones` y `MELI Tarifas` tienen datos
+  reales de clientes: se cargan solo dentro del Google Sheet, nunca se
+  suben a git/GitHub (ver `.gitignore`: `src/TarifasVigentes.gs`).
 
 ## Estructura del proyecto
 
@@ -40,6 +62,7 @@ src/
   SetupSheets.gs        Crea/formatea todas las hojas del spreadsheet
   Cotizar.gs            COTIZAR(): costo/tarifa por Tipo de Unidad + Puesto (vista interna)
   Solicitudes.gs        SOLICITAR_TARIFA(): costo/tarifa por Ruta/Zona/Frecuencia (Comercial)
+  TarifasVigentes.gs    Datos reales de tarifas de clientes + MELI (gitignored, no se sube a GitHub)
   WebApp.gs             Sirve los dos dashboards y expone las funciones de calculo
   Dashboard.html         Dashboard interno (costos)
   DashboardComercial.html Dashboard de Comercial (solicitud de tarifa de cliente)
@@ -67,6 +90,16 @@ Catálogos (los mantiene Vanessa):
   Comercial elija Tipo de Ruta + Zona sin saber nada de nómina.
 - **Config** — precios de Diesel/Gasolina ($/L) y la parte Fiscal por
   periodo (Semanal/Quincenal). Editable sin tocar el script.
+
+Referencia de tarifas de clientes (datos reales, cargados desde el
+tarifario de la empresa — solo dentro del Sheet, no en git):
+
+- **Tarifas Vigentes** — tarifas activas por cliente (Last Mile), para
+  comparar contra lo calculado.
+- **MELI Estaciones** — Estación (nodo) → Nivel (L1-L4), para rutas
+  dedicadas de Mercado Libre.
+- **MELI Tarifas** — tarifa vigente por Vehículo × Nivel × rango de km,
+  para rutas dedicadas de Mercado Libre.
 
 Registros (se llenan solos desde los dashboards, como historial):
 

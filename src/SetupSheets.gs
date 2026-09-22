@@ -43,9 +43,13 @@ function initializeProject() {
   setupRutaZonaPuesto_(hojaZonas, hojaNomina);
   setupCotizador_(hojaCostosUnidad, hojaNomina);
   setupSolicitudes_();
+  setupTarifasVigentes_();
+  setupMeliEstaciones_();
+  setupMeliTarifas_();
   SpreadsheetApp.getUi().alert(
     'Listo. Revisa "Costos Unidad", "Nomina", "Zonas", "Ruta-Zona-Puesto" y "Config" ' +
-    '(catalogos), y "Cotizador" / "Solicitudes" (registro de cotizaciones).'
+    '(catalogos); "Cotizador" / "Solicitudes" (registro de cotizaciones); y ' +
+    '"Tarifas Vigentes" / "MELI Estaciones" / "MELI Tarifas" (referencia de tarifas actuales).'
   );
 }
 
@@ -109,10 +113,13 @@ function setupCostosUnidad_() {
   sheet.getRange(2, 5, FILAS_CATALOGO, 1).setFormulas(mantenimientoDiario);
   sheet.getRange(2, 8, FILAS_CATALOGO, 1).setFormulas(costoGasolinaKm);
 
+  // Nombres alineados con el tarifario real de clientes (Tarifas Vigentes),
+  // para que Tipo de Unidad sí cruce con esa referencia.
   var ejemplo = [
-    ['Torton', 15000, 8000, 3.0, 'Diesel'],
-    ['Rabon', 12000, 6000, 3.6, 'Gasolina'],
-    ['Tractocamion', 18000, 12000, 2.4, 'Diesel']
+    ['Auto', 8000, 4000, 12.0, 'Gasolina'],
+    ['Small Van - 1 tn', 11000, 5500, 8.0, 'Gasolina'],
+    ['Large Van - 1.5 tn', 15000, 8000, 6.0, 'Diesel'],
+    ['3.5 T caja seca', 18000, 10000, 4.5, 'Diesel']
   ];
   sheet.getRange(2, 1, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[0]]; }));
   sheet.getRange(2, 2, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[1]]; }));
@@ -308,11 +315,12 @@ function setupSolicitudes_() {
   sheet.clear();
 
   var headers = [
-    'Fecha', 'Cliente / Ruta', 'Tipo de Ruta', 'Zona / Ciudad', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
-    'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar',
+    'Fecha', 'Cliente', 'Referencia de Ruta', 'Tipo de Ruta', 'Zona / Ciudad', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
+    'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
     'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Viajes al Mes',
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',
-    'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total', 'Margen', 'Tarifa Piso', 'Tarifa por Unidad'
+    'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total', 'Margen', 'Tarifa Piso', 'Tarifa por Unidad',
+    'Tarifa Vigente (referencia)'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');

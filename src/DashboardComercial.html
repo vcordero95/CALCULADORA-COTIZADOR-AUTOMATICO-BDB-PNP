@@ -60,8 +60,16 @@
     .tarifa-piso .valor { font-size: 30px; font-weight: 700; }
     .tarifa-piso .etiqueta { font-size: 13px; opacity: 0.85; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    table td { padding: 6px 0; border-bottom: 1px solid #eef1f6; }
-    table td:last-child { text-align: right; font-weight: 600; }
+    table td, table th { padding: 6px 4px; border-bottom: 1px solid #eef1f6; text-align: left; }
+    table td:last-child, table th:last-child { text-align: right; font-weight: 600; }
+    .tabla-referencia { font-size: 12px; }
+    .seccion-referencia { margin-top: 14px; }
+    .seccion-referencia h3 { font-size: 13px; margin: 0 0 6px; color: #5a6b85; }
+    .comparacion {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #eef1f6; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 13px;
+    }
+    .comparacion .valor { font-weight: 700; }
     .mensaje-error {
       background: #fdecea;
       border: 1px solid #f5b5ac;
@@ -89,7 +97,7 @@
       font-size: 12px;
       margin-top: 12px;
     }
-    #seccion-resultado, #seccion-error { display: none; }
+    #seccion-resultado, #seccion-error, #campo-nuevo-cliente, #campo-estacion-meli { display: none; }
   </style>
 </head>
 <body>
@@ -99,8 +107,20 @@
 
     <div class="card">
       <form id="form-solicitud">
-        <label for="rutaCliente">Cliente / Ruta</label>
-        <input type="text" id="rutaCliente" placeholder="Ej. Cliente X - CDMX a Monterrey">
+        <div class="fila-doble">
+          <div>
+            <label for="cliente">Cliente</label>
+            <select id="cliente" required></select>
+          </div>
+          <div id="campo-nuevo-cliente">
+            <label for="nuevoClienteNombre">Nombre del nuevo cliente</label>
+            <input type="text" id="nuevoClienteNombre" placeholder="Ej. Cliente nuevo S.A.">
+          </div>
+          <div id="campo-referencia-ruta">
+            <label for="rutaCliente">Referencia de ruta</label>
+            <input type="text" id="rutaCliente" placeholder="Ej. CDMX a Monterrey">
+          </div>
+        </div>
 
         <div class="fila-doble">
           <div>
@@ -146,6 +166,11 @@
           </div>
         </div>
 
+        <div id="campo-estacion-meli">
+          <label for="estacionMeli">Estación MELI <span class="ayuda">(ruta dedicada)</span></label>
+          <select id="estacionMeli"></select>
+        </div>
+
         <div class="fila-doble">
           <div>
             <label for="requiereAuxiliar">¿Requiere auxiliar?</label>
@@ -182,7 +207,25 @@
         <tr><td>Costo fijo prorrateado</td><td id="r-costoFijoProrrateado"></td></tr>
         <tr><td>Costo total de la ruta</td><td id="r-costoTotal"></td></tr>
       </table>
-      <div class="mensaje-pendiente">Comparación con tarifa vigente: pendiente de cargar el listado.</div>
+
+      <div id="bloque-tarifa-meli" style="display:none;" class="comparacion">
+        <span>Tarifa vigente MELI (<span id="meli-nivel"></span>)</span>
+        <span class="valor" id="meli-tarifa"></span>
+      </div>
+
+      <div class="seccion-referencia" id="seccion-referencias" style="display:none;">
+        <h3>Tarifas vigentes registradas para este cliente (referencia)</h3>
+        <table class="tabla-referencia">
+          <thead>
+            <tr><th>Svc / Ruta</th><th>Modalidad</th><th>Vehículo</th><th>Tarifa</th></tr>
+          </thead>
+          <tbody id="tabla-referencias-body"></tbody>
+        </table>
+      </div>
+      <div class="mensaje-pendiente" id="mensaje-sin-referencia" style="display:none;">
+        Sin tarifas vigentes registradas para este cliente todavía.
+      </div>
+
       <button type="button" class="secundario" id="btn-guardar">Guardar solicitud</button>
       <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Solicitud guardada en la hoja Solicitudes.</div>
     </div>
@@ -209,6 +252,18 @@
       });
     }
 
+    function actualizarVisibilidadCampos() {
+      var cliente = document.getElementById('cliente').value;
+      var tipoCobro = document.getElementById('tipoCobro').value;
+
+      var esNuevoCliente = cliente === 'Nuevo Cliente';
+      document.getElementById('campo-nuevo-cliente').style.display = esNuevoCliente ? 'block' : 'none';
+      document.getElementById('nuevoClienteNombre').required = esNuevoCliente;
+
+      var esMeliDedicada = cliente === 'Mercado Libre' && tipoCobro === 'Por Ruta';
+      document.getElementById('campo-estacion-meli').style.display = esMeliDedicada ? 'block' : 'none';
+    }
+
     function cargarCatalogos() {
       google.script.run
         .withSuccessHandler(function (catalogos) {
@@ -217,15 +272,51 @@
           poblarSelect(document.getElementById('tipoUnidad'), catalogos.unidades);
           poblarSelect(document.getElementById('frecuencia'), catalogos.frecuencias);
           poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
+          poblarSelect(document.getElementById('cliente'), catalogos.clientes);
+          poblarSelect(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
+          actualizarVisibilidadCampos();
         })
         .withFailureHandler(mostrarError)
         .obtenerCatalogosComercial();
     }
 
+    document.getElementById('cliente').addEventListener('change', actualizarVisibilidadCampos);
+    document.getElementById('tipoCobro').addEventListener('change', actualizarVisibilidadCampos);
+
     function mostrarError(error) {
       document.getElementById('seccion-resultado').style.display = 'none';
       document.getElementById('seccion-error').style.display = 'block';
       document.getElementById('texto-error').textContent = error.message || error;
+    }
+
+    function mostrarReferencias(referencias) {
+      var seccion = document.getElementById('seccion-referencias');
+      var sinReferencia = document.getElementById('mensaje-sin-referencia');
+      var cliente = ultimoCalculo.datos.cliente;
+
+      if (!cliente || cliente === 'Nuevo Cliente') {
+        seccion.style.display = 'none';
+        sinReferencia.style.display = 'none';
+        return;
+      }
+      if (!referencias || referencias.length === 0) {
+        seccion.style.display = 'none';
+        sinReferencia.style.display = 'block';
+        return;
+      }
+      sinReferencia.style.display = 'none';
+      seccion.style.display = 'block';
+      var cuerpo = document.getElementById('tabla-referencias-body');
+      cuerpo.innerHTML = '';
+      referencias.forEach(function (r) {
+        var fila = document.createElement('tr');
+        fila.innerHTML =
+          '<td>' + (r.svc || '') + (r.zonas ? ' / ' + r.zonas : '') + '</td>' +
+          '<td>' + (r.modalidad || '') + '</td>' +
+          '<td>' + (r.tipoVehiculo || '') + '</td>' +
+          '<td>' + money(r.tarifa) + '</td>';
+        cuerpo.appendChild(fila);
+      });
     }
 
     function mostrarResultado(resultado) {
@@ -253,6 +344,17 @@
       document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
       document.getElementById('r-costoTotal').textContent = money(resultado.costoTotal);
 
+      var bloqueMeli = document.getElementById('bloque-tarifa-meli');
+      if (resultado.tarifaMeli) {
+        bloqueMeli.style.display = 'flex';
+        document.getElementById('meli-nivel').textContent = resultado.tarifaMeli.nivel;
+        document.getElementById('meli-tarifa').textContent = money(resultado.tarifaMeli.tarifa);
+      } else {
+        bloqueMeli.style.display = 'none';
+      }
+
+      mostrarReferencias(resultado.referenciasVigentes);
+
       ultimoCalculo = { datos: ultimoCalculo.datos, resultado: resultado };
       document.getElementById('btn-calcular').disabled = false;
       document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
@@ -261,6 +363,8 @@
     document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var datos = {
+        cliente: document.getElementById('cliente').value,
+        nuevoClienteNombre: document.getElementById('nuevoClienteNombre').value,
         rutaCliente: document.getElementById('rutaCliente').value,
         tipoRuta: document.getElementById('tipoRuta').value,
         zona: document.getElementById('zona').value,
@@ -270,6 +374,7 @@
         km: Number(document.getElementById('km').value),
         tipoCobro: document.getElementById('tipoCobro').value,
         cantidad: Number(document.getElementById('cantidad').value),
+        estacionMeli: document.getElementById('estacionMeli').value,
         requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si',
         margen: Number(document.getElementById('margen').value)
       };

@@ -3,5 +3,10 @@
 .clasp.json
 node_modules/
 
+# Datos reales de tarifas de clientes: solo viven en el Google Sheet,
+# nunca se suben a git/GitHub.
+Tarifario*.xlsx
+src/TarifasVigentes.gs
+
 # macOS
 .DS_Store
