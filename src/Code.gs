@@ -4,10 +4,26 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cotizador BDB')
-    .addItem('Inicializar hojas', 'initializeProject')
+    .addItem('Inicializar hojas (borra y reconstruye todo)', 'initializeProject')
+    .addItem('Cargar/actualizar Tarifas Vigentes y MELI', 'cargarTarifasVigentes')
+    .addSeparator()
     .addItem('Abrir dashboard Comercial', 'abrirDashboardComercial')
     .addItem('Abrir dashboard interno (costos)', 'abrirDashboardInterno')
     .addToUi();
+}
+
+/**
+ * Crea (o reinicia) solo "Tarifas Vigentes", "MELI Estaciones" y
+ * "MELI Tarifas", sin tocar Costos Unidad, Nomina, Zonas, Ruta-Zona-Puesto,
+ * Cotizador ni Solicitudes. Util para cargar/actualizar esas 3 hojas sin
+ * arriesgar los costos reales que ya se hayan capturado con
+ * "Inicializar hojas".
+ */
+function cargarTarifasVigentes() {
+  setupTarifasVigentes_();
+  setupMeliEstaciones_();
+  setupMeliTarifas_();
+  SpreadsheetApp.getUi().alert('Listo. Se cargaron/actualizaron "Tarifas Vigentes", "MELI Estaciones" y "MELI Tarifas".');
 }
 
 /**

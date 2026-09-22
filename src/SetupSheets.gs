@@ -36,6 +36,16 @@ var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
  * base.
  */
 function initializeProject() {
+  var ui = SpreadsheetApp.getUi();
+  var respuesta = ui.alert(
+    'Inicializar hojas',
+    'Esto borra y reconstruye TODAS las hojas del cotizador (Costos Unidad, Nomina, Zonas, ' +
+    'Ruta-Zona-Puesto, Config, Cotizador, Solicitudes, Tarifas Vigentes, MELI Estaciones, MELI Tarifas), ' +
+    'regresandolas a sus datos de ejemplo. Si ya capturaste costos reales, se perderan. ¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (respuesta !== ui.Button.YES) return;
+
   setupConfig_();
   var hojaCostosUnidad = setupCostosUnidad_();
   var hojaNomina = setupNomina_();
