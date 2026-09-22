@@ -19,10 +19,12 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
 
 ```
 src/
-  appsscript.json   Manifiesto del proyecto de Apps Script
+  appsscript.json   Manifiesto del proyecto de Apps Script (incluye acceso de la Web App)
   Code.gs            Menú personalizado y arranque
   SetupSheets.gs      Crea/formatea las hojas "Hoja Maestra" y "Cotizador"
   Cotizar.gs          Función COTIZAR(): costo total y tarifa piso
+  WebApp.gs           Sirve el dashboard y expone COTIZAR() a la Web App
+  Dashboard.html       Interfaz del dashboard (Web App)
 docs/
   Hoja de Proyecto IA - Cotizador Automatico TAREA.pdf   Brief original del proyecto
 ```
@@ -79,3 +81,24 @@ Calcular una ruta sencilla en la hoja **Cotizador** en menos de 5 minutos:
 elige el tipo de unidad y el puesto/categoría de sueldo de las listas,
 captura km, viajes al mes y casetas, y verifica que el costo total y la
 tarifa piso aparezcan solos.
+
+## Dashboard (Web App)
+
+Además de la hoja Cotizador, el mismo cálculo (`COTIZAR()`) está disponible
+como una Web App independiente para solicitud/revisión de tarifa de
+cliente — uso interno (Comercial/Sihanka, Miguel), sin exponer la hoja de
+cálculo. La tarifa para proveedores de red externa **no** está incluida
+todavía (queda para después, como marca el brief original).
+
+- **Acceso**: restringido al dominio de Google Workspace de BDB
+  (`src/appsscript.json` → `webapp.access: "DOMAIN"`). Nadie fuera de BDB
+  puede abrir el link.
+- **Publicar/actualizar la Web App**: `clasp deploy` (o Implementar → Nueva
+  implementación → Aplicación web desde el editor de Apps Script). Cada
+  `clasp push` actualiza el código; `clasp deploy` es lo que publica esa
+  versión en el link ya existente.
+- **Abrir el link**: menú **Cotizador BDB → Abrir dashboard** en el
+  spreadsheet.
+- **Guardar cotización**: el botón "Guardar cotización" del dashboard
+  agrega un renglón a la hoja Cotizador con los valores ya calculados (no
+  fórmulas), como registro fijo de la tarifa que se cotizó en ese momento.

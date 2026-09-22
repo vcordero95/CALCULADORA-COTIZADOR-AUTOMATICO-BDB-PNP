@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 24px 16px;
+      color: #1c2b4a;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .subtitulo { color: #5a6b85; margin: 0 0 24px; font-size: 14px; }
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      margin-bottom: 16px;
+    }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    label:first-child { margin-top: 0; }
+    select, input {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid #cfd6e3;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .fila-doble { display: flex; gap: 12px; }
+    .fila-doble > div { flex: 1; }
+    button {
+      margin-top: 18px;
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 6px;
+      background: #1c2b4a;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: default; }
+    button.secundario { background: #2b4a3f; }
+    .tarifa-piso {
+      text-align: center;
+      padding: 18px;
+      border-radius: 8px;
+      background: #1c2b4a;
+      color: #ffffff;
+      margin-bottom: 14px;
+    }
+    .tarifa-piso .valor { font-size: 30px; font-weight: 700; }
+    .tarifa-piso .etiqueta { font-size: 13px; opacity: 0.85; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table td { padding: 6px 0; border-bottom: 1px solid #eef1f6; }
+    table td:last-child { text-align: right; font-weight: 600; }
+    .mensaje-error {
+      background: #fdecea;
+      border: 1px solid #f5b5ac;
+      color: #8a2418;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .mensaje-ok {
+      background: #e8f5e9;
+      border: 1px solid #a8d5aa;
+      color: #245a27;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    #seccion-resultado, #seccion-error { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cotizador BDB</h1>
+    <p class="subtitulo">Solicitud / revisión de tarifa de cliente</p>
+
+    <div class="card">
+      <form id="form-cotizacion">
+        <label for="rutaCliente">Ruta / Cliente</label>
+        <input type="text" id="rutaCliente" placeholder="Ej. CDMX - Monterrey / Cliente X">
+
+        <div class="fila-doble">
+          <div>
+            <label for="tipoUnidad">Tipo de Unidad</label>
+            <select id="tipoUnidad" required></select>
+          </div>
+          <div>
+            <label for="puesto">Puesto / Categoría de Sueldo</label>
+            <select id="puesto" required></select>
+          </div>
+        </div>
+
+        <div class="fila-doble">
+          <div>
+            <label for="km">Kilómetros</label>
+            <input type="number" id="km" min="0" step="0.1" required>
+          </div>
+          <div>
+            <label for="paradas">Paradas</label>
+            <input type="number" id="paradas" min="0" step="1" value="0">
+          </div>
+        </div>
+
+        <div class="fila-doble">
+          <div>
+            <label for="viajesMes">Viajes al mes</label>
+            <input type="number" id="viajesMes" min="1" step="1" required>
+          </div>
+          <div>
+            <label for="casetas">Costo de casetas ($)</label>
+            <input type="number" id="casetas" min="0" step="0.01" value="0">
+          </div>
+        </div>
+
+        <label for="margen">Margen objetivo (%)</label>
+        <input type="number" id="margen" min="0" max="99" step="0.1" value="20">
+
+        <button type="submit" id="btn-calcular">Calcular tarifa</button>
+      </form>
+    </div>
+
+    <div class="card" id="seccion-resultado">
+      <div class="tarifa-piso">
+        <div class="etiqueta">Tarifa piso</div>
+        <div class="valor" id="valor-tarifa-piso">$0.00</div>
+      </div>
+      <table>
+        <tr><td>Costo variable (gasolina)</td><td id="r-costoVariable"></td></tr>
+        <tr><td>Costo fijo prorrateado</td><td id="r-costoFijoProrrateado"></td></tr>
+        <tr><td>Costo total de la ruta</td><td id="r-costoTotal"></td></tr>
+        <tr><td>Sueldo mensual (puesto)</td><td id="r-sueldoMensual"></td></tr>
+        <tr><td>Renta mensual (unidad)</td><td id="r-rentaMensual"></td></tr>
+        <tr><td>Mantenimiento mensual (unidad)</td><td id="r-mantenimientoMensual"></td></tr>
+        <tr><td>Costo gasolina por km</td><td id="r-costoGasolinaKm"></td></tr>
+      </table>
+      <button type="button" class="secundario" id="btn-guardar">Guardar cotización</button>
+      <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Cotización guardada en la hoja Cotizador.</div>
+    </div>
+
+    <div class="card" id="seccion-error">
+      <div class="mensaje-error" id="texto-error"></div>
+    </div>
+  </div>
+
+  <script>
+    var ultimoCalculo = null;
+
+    function money(n) {
+      return '$' + Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function poblarSelect(select, opciones) {
+      select.innerHTML = '';
+      opciones.forEach(function (opcion) {
+        var el = document.createElement('option');
+        el.value = opcion;
+        el.textContent = opcion;
+        select.appendChild(el);
+      });
+    }
+
+    function cargarCatalogos() {
+      google.script.run
+        .withSuccessHandler(function (catalogos) {
+          poblarSelect(document.getElementById('tipoUnidad'), catalogos.unidades);
+          poblarSelect(document.getElementById('puesto'), catalogos.puestos);
+        })
+        .withFailureHandler(mostrarError)
+        .obtenerCatalogos();
+    }
+
+    function mostrarError(error) {
+      document.getElementById('seccion-resultado').style.display = 'none';
+      document.getElementById('seccion-error').style.display = 'block';
+      document.getElementById('texto-error').textContent = error.message || error;
+    }
+
+    function mostrarResultado(resultado) {
+      document.getElementById('seccion-error').style.display = 'none';
+      document.getElementById('seccion-resultado').style.display = 'block';
+      document.getElementById('mensaje-guardado').style.display = 'none';
+
+      document.getElementById('valor-tarifa-piso').textContent = money(resultado.tarifaPiso);
+      document.getElementById('r-costoVariable').textContent = money(resultado.costoVariable);
+      document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
+      document.getElementById('r-costoTotal').textContent = money(resultado.costoTotal);
+      document.getElementById('r-sueldoMensual').textContent = money(resultado.sueldoMensual);
+      document.getElementById('r-rentaMensual').textContent = money(resultado.rentaMensual);
+      document.getElementById('r-mantenimientoMensual').textContent = money(resultado.mantenimientoMensual);
+      document.getElementById('r-costoGasolinaKm').textContent = money(resultado.costoGasolinaKm);
+
+      ultimoCalculo = { datos: ultimoCalculo.datos, resultado: resultado };
+      document.getElementById('btn-calcular').disabled = false;
+      document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
+    }
+
+    document.getElementById('form-cotizacion').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var datos = {
+        rutaCliente: document.getElementById('rutaCliente').value,
+        tipoUnidad: document.getElementById('tipoUnidad').value,
+        puesto: document.getElementById('puesto').value,
+        km: Number(document.getElementById('km').value),
+        paradas: Number(document.getElementById('paradas').value),
+        viajesMes: Number(document.getElementById('viajesMes').value),
+        casetas: Number(document.getElementById('casetas').value),
+        margen: Number(document.getElementById('margen').value)
+      };
+      ultimoCalculo = { datos: datos, resultado: null };
+
+      document.getElementById('btn-calcular').disabled = true;
+      document.getElementById('btn-calcular').textContent = 'Calculando...';
+
+      google.script.run
+        .withSuccessHandler(mostrarResultado)
+        .withFailureHandler(function (error) {
+          document.getElementById('btn-calcular').disabled = false;
+          document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
+          mostrarError(error);
+        })
+        .calcularCotizacionWeb(datos);
+    });
+
+    document.getElementById('btn-guardar').addEventListener('click', function () {
+      if (!ultimoCalculo || !ultimoCalculo.resultado) return;
+      var boton = document.getElementById('btn-guardar');
+      boton.disabled = true;
+      boton.textContent = 'Guardando...';
+      google.script.run
+        .withSuccessHandler(function () {
+          boton.disabled = false;
+          boton.textContent = 'Guardar cotización';
+          document.getElementById('mensaje-guardado').style.display = 'block';
+        })
+        .withFailureHandler(function (error) {
+          boton.disabled = false;
+          boton.textContent = 'Guardar cotización';
+          mostrarError(error);
+        })
+        .guardarCotizacionWeb(ultimoCalculo.datos, ultimoCalculo.resultado);
+    });
+
+    cargarCatalogos();
+  </script>
+</body>
+</html>

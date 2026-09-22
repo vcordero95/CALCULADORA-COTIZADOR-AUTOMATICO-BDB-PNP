@@ -5,6 +5,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cotizador BDB')
     .addItem('Inicializar hojas', 'initializeProject')
+    .addItem('Abrir dashboard', 'abrirDashboard')
     .addToUi();
 }
 
