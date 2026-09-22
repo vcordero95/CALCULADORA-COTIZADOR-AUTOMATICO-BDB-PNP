@@ -11,7 +11,7 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
 | Semana | Qué se construye | Estado |
 |---|---|---|
 | 3 · El PMV | Hoja con lista desplegable de unidad, viajes al mes y km, que calcula costo y tarifa con `Costo ÷ (1 - Margen)` | 🚧 En construcción |
-| 4 · Que aguante | Semáforos (20% / 23%), bloqueos si faltan datos, casetas por ruta | Pendiente |
+| 4 · Que aguante | Semáforos (20% Piso / 30% Objetivo), bloqueos si faltan datos | Casetas por ruta (Punto A/B) ya implementado; semáforo visual pendiente |
 | 5 · Que lo use otro | Vista resumen para Miguel (5 datos clave) | Pendiente |
 | 6 · Que se defienda | Prueba con 3 cotizaciones reales, medición de tiempo | Pendiente |
 
@@ -21,12 +21,14 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   Puesto/Categoría de Sueldo. Es la hoja **Cotizador** y el dashboard
   `?vista=interna`.
 - **Dashboard de Comercial (solicitud de tarifa de cliente)** — Comercial
-  no ve costos: captura Cliente, Tipo de Ruta, Zona/Ciudad, Tipo de Unidad,
-  Frecuencia, Volumen, km, Tipo de Cobro y si necesita auxiliar. El
-  sistema resuelve solo el Puesto (y el Auxiliar), el costo de casetas por
-  zona y los viajes al mes por frecuencia, calcula la tarifa, y la muestra
-  junto a las tarifas vigentes registradas para ese cliente. Es la hoja
-  **Solicitudes** y el dashboard por default (sin `?vista=`).
+  no ve costos ni margen: captura Cliente, Tipo de Ruta, Punto A (origen),
+  Punto B (destino), Tipo de Unidad, Frecuencia, Volumen (cantidad de
+  paquetes), km, Tipo de Cobro y si necesita auxiliar. El sistema resuelve
+  solo el Puesto (y el Auxiliar), el costo de casetas de esa ruta y los
+  viajes al mes por frecuencia; calcula la Tarifa Piso (20%) y la Tarifa
+  Objetivo (30%) con la política fija de margen de la empresa, y las
+  muestra junto a las tarifas vigentes registradas para ese cliente. Es la
+  hoja **Solicitudes** y el dashboard por default (sin `?vista=`).
 
 La tarifa para proveedores de red externa **no** está incluida todavía
 (queda para después, como marca el brief original).
@@ -37,18 +39,17 @@ La tarifa para proveedores de red externa **no** está incluida todavía
   tarifario real de clientes) más la opción fija **"Nuevo Cliente"** (para
   cotizaciones de clientes que aún no tienen tarifa registrada — en ese
   caso no se muestra ninguna comparación).
-- Para cualquier cliente, al calcular se listan sus tarifas vigentes
-  registradas (Last Mile, Estado Vigencia = Activa) como referencia — no
-  es un match exacto automático, porque los nombres de vehículo y rutas en
-  el tarifario real no siempre calzan literal con los catálogos internos.
+- Para cualquier cliente, al calcular se listan **todas** sus tarifas
+  vigentes registradas (Estado Vigencia = Activa, de cualquier Tipo De
+  Servicio — Last Mile, Line Haul, Media Milla, marcado en la columna
+  "Servicio") como referencia — no es un match exacto automático, porque
+  los nombres de vehículo y rutas en el tarifario real no siempre calzan
+  literal con los catálogos internos.
 - Para **Mercado Libre + Por Ruta** (ruta dedicada), además aparece un
   dropdown de **Estación MELI**: con esa estación (nodo) + Tipo de Unidad
   + km sí se calcula una tarifa vigente exacta contra `MELI Tarifas`
   (Nivel L1-L4 × rango de km), usando el nivel de esa estación en
   `MELI Estaciones`.
-- **Line Haul** (modalidades RT/OW) es un negocio distinto al de rutas
-  dedicadas/Last Mile que cubre este cotizador, y queda fuera de esta
-  comparación.
 - `Tarifas Vigentes`, `MELI Estaciones` y `MELI Tarifas` tienen datos
   reales de clientes: se cargan solo dentro del Google Sheet, nunca se
   suben a git/GitHub (ver `.gitignore`: `src/TarifasVigentes.gs`).
@@ -61,7 +62,7 @@ src/
   Code.gs               Menú personalizado, onEdit de la hoja Cotizador
   SetupSheets.gs        Crea/formatea todas las hojas del spreadsheet
   Cotizar.gs            COTIZAR(): costo/tarifa por Tipo de Unidad + Puesto (vista interna)
-  Solicitudes.gs        SOLICITAR_TARIFA(): costo/tarifa por Ruta/Zona/Frecuencia (Comercial)
+  Solicitudes.gs        SOLICITAR_TARIFA(): costo/tarifa por Ruta/Punto A-B/Frecuencia (Comercial)
   TarifasVigentes.gs    Datos reales de tarifas de clientes + MELI (gitignored, no se sube a GitHub)
   WebApp.gs             Sirve los dos dashboards y expone las funciones de calculo
   Dashboard.html         Dashboard interno (costos)
@@ -84,12 +85,21 @@ Catálogos (los mantiene Vanessa):
   - **IMSS** = 30% de Fiscal.
   - **Comisiones** = 5% del Complemento.
   - **Sueldo Mensual Total** = (Sueldo + IMSS + Comisiones) × 4.33 si es Semanal, o × 2 si es Quincenal.
-- **Zonas** — Zona / Ciudad → Costo de Casetas.
-- **Ruta-Zona-Puesto** — para cada combinación de Tipo de Ruta + Zona, qué
-  Puesto Principal (y cuál Auxiliar) aplica. Esto es lo que permite que
-  Comercial elija Tipo de Ruta + Zona sin saber nada de nómina.
-- **Config** — precios de Diesel/Gasolina ($/L) y la parte Fiscal por
-  periodo (Semanal/Quincenal). Editable sin tocar el script.
+- **Puntos** — catálogo de ciudades/puntos usados como Punto A (origen),
+  Punto B (destino) y Destino en `Ruta-Zona-Puesto`.
+- **Casetas** — costo de casetas entre Punto A y Punto B (sin importar el
+  orden). Trae 3 rutas de ejemplo con datos reales de prensa sobre las
+  tarifas CAPUFE 2026 (columna Fuente) — **son un punto de partida a
+  validar/actualizar** con el PDF oficial de CAPUFE para el tipo de
+  unidad real de la flota, no un dato exacto por vehículo.
+- **Ruta-Zona-Puesto** — para cada combinación de Tipo de Ruta + Destino
+  (Punto B), qué Puesto Principal (y cuál Auxiliar) aplica. Esto es lo
+  que permite que Comercial elija Tipo de Ruta + Punto A/Punto B sin
+  saber nada de nómina.
+- **Config** — precios de Diesel/Gasolina ($/L), la parte Fiscal por
+  periodo (Semanal/Quincenal), y la política de margen del dashboard de
+  Comercial: **Margen Piso (20%)** y **Margen Objetivo (30%)**. Editable
+  sin tocar el script.
 
 Referencia de tarifas de clientes (datos reales, cargados desde el
 tarifario de la empresa — solo dentro del Sheet, no en git):
@@ -112,17 +122,22 @@ Registros (se llenan solos desde los dashboards, como historial):
 2. **Costo fijo mensual** = Sueldo Mensual Total (del puesto, o puesto + auxiliar) + Renta Mensual + Mantenimiento Mensual (de la unidad).
 3. **Costo fijo prorrateado** = Costo fijo mensual ÷ viajes al mes.
 4. **Costo total de la ruta** = Costo variable + Costo fijo prorrateado + Casetas.
-5. **Tarifa piso** = Costo total ÷ (1 − Margen).
+5. **Tarifa** = Costo total ÷ (1 − Margen).
 
-En el dashboard de Comercial, si el Tipo de Cobro no es "Por Ruta"
-(Por Paquete, Por Parada o Por Palet), además se calcula:
+En la hoja **Cotizador** (vista interna) el margen lo captura Vanessa por
+fila. En el dashboard de **Comercial** el margen no se captura: se
+calculan ambas tarifas con la política fija de `Config` — **Tarifa Piso**
+(Margen Piso, 20%) y **Tarifa Objetivo** (Margen Objetivo, 30%).
 
-6. **Tarifa por unidad** = Tarifa piso ÷ Cantidad (paquetes/paradas/palets capturados).
+Si el Tipo de Cobro no es "Por Ruta" (Por Paquete, Por Parada o Por
+Palet), además se calcula cada una entre la Cantidad capturada:
+
+6. **Tarifa por unidad (Piso/Objetivo)** = Tarifa (Piso/Objetivo) ÷ Cantidad (paquetes/paradas/palets).
 
 ### Cómo resuelve solo el dashboard de Comercial
 
-- **Puesto Principal / Auxiliar** ← Tipo de Ruta + Zona, buscado en `Ruta-Zona-Puesto`. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
-- **Costo de Casetas** ← Zona, buscado en `Zonas`.
+- **Puesto Principal / Auxiliar** ← Tipo de Ruta + Punto B (destino), buscado en `Ruta-Zona-Puesto`. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
+- **Costo de Casetas** ← Punto A + Punto B (sin importar el orden), buscado en `Casetas`.
 - **Viajes al Mes** ← Frecuencia (ej. `7x7`, `5x7`): se toma el primer número (veces por semana) × 4.33.
 
 ## Puesta en marcha (Google Sheets)
@@ -135,8 +150,9 @@ En el dashboard de Comercial, si el Tipo de Cobro no es "Por Ruta"
 4. Recarga el spreadsheet. Aparecerá el menú **Cotizador BDB**.
 5. Menú **Cotizador BDB → Inicializar hojas**. Esto crea todas las hojas
    listadas arriba, con datos de ejemplo en los catálogos.
-6. Reemplaza los datos de ejemplo con tus costos, zonas y mapeos reales en
-   **Costos Unidad**, **Nomina**, **Zonas** y **Ruta-Zona-Puesto**.
+6. Reemplaza los datos de ejemplo con tus costos, puntos, casetas y
+   mapeos reales en **Costos Unidad**, **Nomina**, **Puntos**, **Casetas**
+   y **Ruta-Zona-Puesto**.
 
 ## Prueba rápida (definición de "quedó" de la semana 3)
 

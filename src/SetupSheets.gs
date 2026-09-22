@@ -5,17 +5,19 @@
  */
 var HOJA_COSTOS_UNIDAD = 'Costos Unidad';
 var HOJA_NOMINA = 'Nomina';
-var HOJA_ZONAS = 'Zonas';
+var HOJA_PUNTOS = 'Puntos';
+var HOJA_CASETAS = 'Casetas';
 var HOJA_RUTA_ZONA_PUESTO = 'Ruta-Zona-Puesto';
 var HOJA_CONFIG = 'Config';
 var COTIZADOR = 'Cotizador';
 var HOJA_SOLICITUDES = 'Solicitudes';
 
-/** Filas reservadas para cada catalogo (Costos Unidad, Nomina, Zonas). */
+/** Filas reservadas para cada catalogo (Costos Unidad, Nomina, Puntos). */
 var FILAS_CATALOGO = 50;
 
-/** Filas reservadas para combinaciones Tipo de Ruta + Zona. */
+/** Filas reservadas para combinaciones Tipo de Ruta + Destino, y para Casetas (Punto A + Punto B). */
 var FILAS_RUTA_ZONA = 100;
+var FILAS_CASETAS = 150;
 
 /** Filas reservadas para captura en Cotizador y Solicitudes. */
 var FILAS_COTIZADOR = 500;
@@ -39,7 +41,7 @@ function initializeProject() {
   var ui = SpreadsheetApp.getUi();
   var respuesta = ui.alert(
     'Inicializar hojas',
-    'Esto borra y reconstruye TODAS las hojas del cotizador (Costos Unidad, Nomina, Zonas, ' +
+    'Esto borra y reconstruye TODAS las hojas del cotizador (Costos Unidad, Nomina, Puntos, Casetas, ' +
     'Ruta-Zona-Puesto, Config, Cotizador, Solicitudes, Tarifas Vigentes, MELI Estaciones, MELI Tarifas), ' +
     'regresandolas a sus datos de ejemplo. Si ya capturaste costos reales, se perderan. ¿Continuar?',
     ui.ButtonSet.YES_NO
@@ -49,23 +51,26 @@ function initializeProject() {
   setupConfig_();
   var hojaCostosUnidad = setupCostosUnidad_();
   var hojaNomina = setupNomina_();
-  var hojaZonas = setupZonas_();
-  setupRutaZonaPuesto_(hojaZonas, hojaNomina);
+  var hojaPuntos = setupPuntos_();
+  setupCasetas_(hojaPuntos);
+  setupRutaZonaPuesto_(hojaPuntos, hojaNomina);
   setupCotizador_(hojaCostosUnidad, hojaNomina);
   setupSolicitudes_();
   setupTarifasVigentes_();
   setupMeliEstaciones_();
   setupMeliTarifas_();
   SpreadsheetApp.getUi().alert(
-    'Listo. Revisa "Costos Unidad", "Nomina", "Zonas", "Ruta-Zona-Puesto" y "Config" ' +
+    'Listo. Revisa "Costos Unidad", "Nomina", "Puntos", "Casetas", "Ruta-Zona-Puesto" y "Config" ' +
     '(catalogos); "Cotizador" / "Solicitudes" (registro de cotizaciones); y ' +
     '"Tarifas Vigentes" / "MELI Estaciones" / "MELI Tarifas" (referencia de tarifas actuales).'
   );
 }
 
 /**
- * "Config": precios de combustible y parte fiscal por periodo. Editable
- * sin tocar el script cuando cambien.
+ * "Config": precios de combustible, parte fiscal por periodo, y la
+ * politica de margen (Piso / Objetivo) que usa el dashboard de Comercial
+ * en vez de pedirle el margen a Comercial. Editable sin tocar el script
+ * cuando cambien.
  */
 function setupConfig_() {
   var ss = SpreadsheetApp.getActive();
@@ -76,11 +81,14 @@ function setupConfig_() {
     ['Precio Diesel ($/L)', 24.5],
     ['Precio Gasolina ($/L)', 23.8],
     ['Fiscal Semanal', 2253.6],
-    ['Fiscal Quincenal', 5190.6]
+    ['Fiscal Quincenal', 5190.6],
+    ['Margen Piso', 0.2],
+    ['Margen Objetivo', 0.3]
   ];
   sheet.getRange(1, 1, datos.length, 2).setValues(datos);
   sheet.getRange(1, 1, datos.length, 1).setFontWeight('bold');
-  sheet.getRange(1, 2, datos.length, 1).setNumberFormat('$#,##0.00');
+  sheet.getRange(1, 2, 4, 1).setNumberFormat('$#,##0.00');
+  sheet.getRange(5, 2, 2, 1).setNumberFormat('0%');
   sheet.autoResizeColumns(1, 2);
   return sheet;
 }
@@ -205,44 +213,77 @@ function setupNomina_() {
 }
 
 /**
- * "Zonas": costo de casetas por Zona / Ciudad. Comercial elige la zona y
- * ese costo se resuelve solo, sin capturarlo a mano por ruta.
+ * "Puntos": catalogo de ciudades/puntos que se usan como Punto A
+ * (origen) y Punto B (destino) de una ruta, y como Destino en
+ * Ruta-Zona-Puesto.
  */
-function setupZonas_() {
+function setupPuntos_() {
   var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName(HOJA_ZONAS) || ss.insertSheet(HOJA_ZONAS);
+  var sheet = ss.getSheetByName(HOJA_PUNTOS) || ss.insertSheet(HOJA_PUNTOS);
   sheet.clear();
   sheet.getDataRange().clearDataValidations();
 
-  var headers = ['Zona / Ciudad', 'Costo Casetas'];
+  var headers = ['Punto'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#4a3a1c').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
 
-  var ejemplo = [
-    ['CDMX', 350],
-    ['Monterrey', 620],
-    ['Guadalajara', 480]
-  ];
-  sheet.getRange(2, 1, ejemplo.length, 2).setValues(ejemplo);
-  sheet.getRange(2, 2, FILAS_CATALOGO, 1).setNumberFormat('$#,##0.00');
+  var ejemplo = [['CDMX'], ['Querétaro'], ['Puebla'], ['Toluca'], ['Monterrey'], ['Guadalajara']];
+  sheet.getRange(2, 1, ejemplo.length, 1).setValues(ejemplo);
   sheet.autoResizeColumns(1, headers.length);
   return sheet;
 }
 
 /**
- * "Ruta-Zona-Puesto": por cada combinacion de Tipo de Ruta + Zona, que
- * Puesto principal (y cual Auxiliar, si la ruta lo necesita) aplica. Esto
- * es lo que permite que Comercial elija Tipo de Ruta + Zona sin tener que
- * saber nada de nomina.
+ * "Casetas": costo de casetas entre Punto A y Punto B (no importa el
+ * orden: A->B cuesta lo mismo que B->A). Comercial elige el origen y
+ * destino de la ruta, y ese costo se resuelve solo.
+ *
+ * Los montos de ejemplo son de camion de 2 ejes, tomados de cobertura de
+ * prensa sobre las tarifas CAPUFE 2026 (columna Fuente) — son un punto de
+ * partida a validar/actualizar con el PDF oficial de CAPUFE para el tipo
+ * de unidad real de la flota, no un dato exacto por vehiculo.
  */
-function setupRutaZonaPuesto_(hojaZonas, hojaNomina) {
+function setupCasetas_(hojaPuntos) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName(HOJA_CASETAS) || ss.insertSheet(HOJA_CASETAS);
+  sheet.clear();
+  sheet.getDataRange().clearDataValidations();
+
+  var headers = ['Punto A', 'Punto B', 'Costo Casetas', 'Fuente'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setFontWeight('bold').setBackground('#4a3a1c').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+
+  var puntoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
+  sheet.getRange(2, 1, FILAS_CASETAS, 1).setDataValidation(puntoRule);
+  sheet.getRange(2, 2, FILAS_CASETAS, 1).setDataValidation(puntoRule);
+
+  var ejemplo = [
+    ['CDMX', 'Querétaro', 490, 'Camión 2 ejes, prensa CAPUFE abr-2026 (nmas.com.mx) — validar en PDF oficial CAPUFE'],
+    ['CDMX', 'Puebla', 650, 'Camión 2-3 ejes, prensa CAPUFE abr-2026 (nmas.com.mx) — validar en PDF oficial CAPUFE'],
+    ['CDMX', 'Toluca', 260, 'Camión/autobús 2 ejes, tramo La Marquesa, prensa CAPUFE abr-2026 (milenio.com) — validar en PDF oficial CAPUFE']
+  ];
+  sheet.getRange(2, 1, ejemplo.length, 4).setValues(ejemplo);
+  sheet.getRange(2, 3, FILAS_CASETAS, 1).setNumberFormat('$#,##0.00');
+  sheet.autoResizeColumns(1, headers.length);
+  return sheet;
+}
+
+/**
+ * "Ruta-Zona-Puesto": por cada combinacion de Tipo de Ruta + Destino
+ * (Punto B), que Puesto principal (y cual Auxiliar, si la ruta lo
+ * necesita) aplica. Esto es lo que permite que Comercial elija Tipo de
+ * Ruta + Punto A/Punto B sin tener que saber nada de nomina.
+ */
+function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   var ss = SpreadsheetApp.getActive();
   var sheet = ss.getSheetByName(HOJA_RUTA_ZONA_PUESTO) || ss.insertSheet(HOJA_RUTA_ZONA_PUESTO);
   sheet.clear();
   sheet.getDataRange().clearDataValidations();
 
-  var headers = ['Tipo de Ruta', 'Zona / Ciudad', 'Puesto Principal', 'Puesto Auxiliar'];
+  var headers = ['Tipo de Ruta', 'Destino (Punto B)', 'Puesto Principal', 'Puesto Auxiliar'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#4a1c3a').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
@@ -251,9 +292,9 @@ function setupRutaZonaPuesto_(hojaZonas, hojaNomina) {
     .requireValueInList(TIPOS_RUTA, true).setAllowInvalid(false).build();
   sheet.getRange(2, 1, FILAS_RUTA_ZONA, 1).setDataValidation(tipoRutaRule);
 
-  var zonaRule = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(hojaZonas.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
-  sheet.getRange(2, 2, FILAS_RUTA_ZONA, 1).setDataValidation(zonaRule);
+  var puntoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
+  sheet.getRange(2, 2, FILAS_RUTA_ZONA, 1).setDataValidation(puntoRule);
 
   var puestoRule = SpreadsheetApp.newDataValidation()
     .requireValueInRange(hojaNomina.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
@@ -325,12 +366,13 @@ function setupSolicitudes_() {
   sheet.clear();
 
   var headers = [
-    'Fecha', 'Cliente', 'Referencia de Ruta', 'Tipo de Ruta', 'Zona / Ciudad', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
+    'Fecha', 'Cliente', 'Referencia de Ruta', 'Tipo de Ruta', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
     'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
     'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Viajes al Mes',
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',
-    'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total', 'Margen', 'Tarifa Piso', 'Tarifa por Unidad',
-    'Tarifa Vigente (referencia)'
+    'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total',
+    'Margen Piso', 'Margen Objetivo', 'Tarifa Piso', 'Tarifa Objetivo',
+    'Tarifa por Unidad (Piso)', 'Tarifa por Unidad (Objetivo)', 'Tarifa Vigente (referencia)'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');

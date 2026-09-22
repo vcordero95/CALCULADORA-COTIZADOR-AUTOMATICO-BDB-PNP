@@ -48,17 +48,19 @@
     }
     button:disabled { opacity: 0.6; cursor: default; }
     button.secundario { background: #2b4a3f; }
+    .fila-tarifas { display: flex; gap: 12px; margin-bottom: 14px; }
     .tarifa-piso {
+      flex: 1;
       text-align: center;
-      padding: 18px;
+      padding: 18px 10px;
       border-radius: 8px;
       background: #1c2b4a;
       color: #ffffff;
-      margin-bottom: 14px;
     }
-    .tarifa-piso.unidad { background: #2b4a3f; }
-    .tarifa-piso .valor { font-size: 30px; font-weight: 700; }
-    .tarifa-piso .etiqueta { font-size: 13px; opacity: 0.85; }
+    .tarifa-piso.objetivo { background: #2b4a3f; }
+    .tarifa-piso.unidad { background: #4a3a1c; }
+    .tarifa-piso .valor { font-size: 24px; font-weight: 700; }
+    .tarifa-piso .etiqueta { font-size: 12px; opacity: 0.85; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     table td, table th { padding: 6px 4px; border-bottom: 1px solid #eef1f6; text-align: left; }
     table td:last-child, table th:last-child { text-align: right; font-weight: 600; }
@@ -97,7 +99,7 @@
       font-size: 12px;
       margin-top: 12px;
     }
-    #seccion-resultado, #seccion-error, #campo-nuevo-cliente, #campo-estacion-meli { display: none; }
+    #seccion-resultado, #seccion-error, #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad { display: none; }
   </style>
 </head>
 <body>
@@ -128,26 +130,26 @@
             <select id="tipoRuta" required></select>
           </div>
           <div>
-            <label for="zona">Zona / Ciudad</label>
-            <select id="zona" required></select>
-          </div>
-        </div>
-
-        <div class="fila-doble">
-          <div>
             <label for="tipoUnidad">Tipo de Unidad</label>
             <select id="tipoUnidad" required></select>
           </div>
+        </div>
+
+        <div class="fila-doble">
           <div>
-            <label for="frecuencia">Frecuencia <span class="ayuda">(NxM = N días de cada M)</span></label>
-            <select id="frecuencia" required></select>
+            <label for="puntoA">Punto A <span class="ayuda">(origen)</span></label>
+            <select id="puntoA" required></select>
+          </div>
+          <div>
+            <label for="puntoB">Punto B <span class="ayuda">(destino)</span></label>
+            <select id="puntoB" required></select>
           </div>
         </div>
 
         <div class="fila-doble">
           <div>
-            <label for="volumen">Volumen</label>
-            <input type="text" id="volumen" placeholder="Ej. 12 ton / 30 m3">
+            <label for="frecuencia">Frecuencia <span class="ayuda">(NxM = N días de cada M)</span></label>
+            <select id="frecuencia" required></select>
           </div>
           <div>
             <label for="km">Kilómetros</label>
@@ -157,12 +159,26 @@
 
         <div class="fila-doble">
           <div>
+            <label for="volumen">Volumen <span class="ayuda">(cantidad de paquetes)</span></label>
+            <input type="number" id="volumen" min="0" step="1" placeholder="Ej. 120">
+          </div>
+          <div>
             <label for="tipoCobro">Tipo de Cobro</label>
             <select id="tipoCobro" required></select>
           </div>
+        </div>
+
+        <div class="fila-doble">
           <div>
             <label for="cantidad">Cantidad <span class="ayuda">(paquetes/paradas/palets)</span></label>
             <input type="number" id="cantidad" min="0" step="1" value="0">
+          </div>
+          <div>
+            <label for="requiereAuxiliar">¿Requiere auxiliar?</label>
+            <select id="requiereAuxiliar">
+              <option value="no">No</option>
+              <option value="si">Sí</option>
+            </select>
           </div>
         </div>
 
@@ -171,37 +187,35 @@
           <select id="estacionMeli"></select>
         </div>
 
-        <div class="fila-doble">
-          <div>
-            <label for="requiereAuxiliar">¿Requiere auxiliar?</label>
-            <select id="requiereAuxiliar">
-              <option value="no">No</option>
-              <option value="si">Sí</option>
-            </select>
-          </div>
-          <div>
-            <label for="margen">Margen objetivo (%)</label>
-            <input type="number" id="margen" min="0" max="99" step="0.1" value="20">
-          </div>
-        </div>
-
         <button type="submit" id="btn-calcular">Calcular tarifa</button>
       </form>
     </div>
 
     <div class="card" id="seccion-resultado">
-      <div class="tarifa-piso">
-        <div class="etiqueta">Tarifa piso (ruta completa)</div>
-        <div class="valor" id="valor-tarifa-piso">$0.00</div>
+      <div class="fila-tarifas">
+        <div class="tarifa-piso">
+          <div class="etiqueta">Tarifa piso (mínimo, 20%)</div>
+          <div class="valor" id="valor-tarifa-piso">$0.00</div>
+        </div>
+        <div class="tarifa-piso objetivo">
+          <div class="etiqueta">Tarifa objetivo (30%)</div>
+          <div class="valor" id="valor-tarifa-objetivo">$0.00</div>
+        </div>
       </div>
-      <div class="tarifa-piso unidad" id="bloque-tarifa-unidad" style="display:none;">
-        <div class="etiqueta" id="etiqueta-tarifa-unidad">Tarifa por unidad</div>
-        <div class="valor" id="valor-tarifa-unidad">$0.00</div>
+      <div class="fila-tarifas" id="fila-tarifas-unidad">
+        <div class="tarifa-piso unidad">
+          <div class="etiqueta" id="etiqueta-unidad-piso">Piso por unidad</div>
+          <div class="valor" id="valor-tarifa-unidad-piso">$0.00</div>
+        </div>
+        <div class="tarifa-piso unidad">
+          <div class="etiqueta" id="etiqueta-unidad-objetivo">Objetivo por unidad</div>
+          <div class="valor" id="valor-tarifa-unidad-objetivo">$0.00</div>
+        </div>
       </div>
       <table>
         <tr><td>Puesto principal</td><td id="r-puestoPrincipal"></td></tr>
         <tr><td>Puesto auxiliar</td><td id="r-puestoAuxiliar"></td></tr>
-        <tr><td>Costo casetas (zona)</td><td id="r-costoCasetas"></td></tr>
+        <tr><td>Costo casetas (Punto A - Punto B)</td><td id="r-costoCasetas"></td></tr>
         <tr><td>Viajes al mes (frecuencia)</td><td id="r-viajesMes"></td></tr>
         <tr><td>Costo variable (gasolina)</td><td id="r-costoVariable"></td></tr>
         <tr><td>Costo fijo prorrateado</td><td id="r-costoFijoProrrateado"></td></tr>
@@ -217,7 +231,7 @@
         <h3>Tarifas vigentes registradas para este cliente (referencia)</h3>
         <table class="tabla-referencia">
           <thead>
-            <tr><th>Svc / Ruta</th><th>Modalidad</th><th>Vehículo</th><th>Tarifa</th></tr>
+            <tr><th>Servicio</th><th>Svc / Ruta</th><th>Modalidad</th><th>Vehículo</th><th>Tarifa</th></tr>
           </thead>
           <tbody id="tabla-referencias-body"></tbody>
         </table>
@@ -268,7 +282,8 @@
       google.script.run
         .withSuccessHandler(function (catalogos) {
           poblarSelect(document.getElementById('tipoRuta'), catalogos.tiposRuta);
-          poblarSelect(document.getElementById('zona'), catalogos.zonas);
+          poblarSelect(document.getElementById('puntoA'), catalogos.puntos);
+          poblarSelect(document.getElementById('puntoB'), catalogos.puntos);
           poblarSelect(document.getElementById('tipoUnidad'), catalogos.unidades);
           poblarSelect(document.getElementById('frecuencia'), catalogos.frecuencias);
           poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
@@ -311,6 +326,7 @@
       referencias.forEach(function (r) {
         var fila = document.createElement('tr');
         fila.innerHTML =
+          '<td>' + (r.tipoDeServicio || '') + '</td>' +
           '<td>' + (r.svc || '') + (r.zonas ? ' / ' + r.zonas : '') + '</td>' +
           '<td>' + (r.modalidad || '') + '</td>' +
           '<td>' + (r.tipoVehiculo || '') + '</td>' +
@@ -325,15 +341,18 @@
       document.getElementById('mensaje-guardado').style.display = 'none';
 
       document.getElementById('valor-tarifa-piso').textContent = money(resultado.tarifaPiso);
+      document.getElementById('valor-tarifa-objetivo').textContent = money(resultado.tarifaObjetivo);
 
       var tipoCobro = ultimoCalculo.datos.tipoCobro;
-      var bloqueUnidad = document.getElementById('bloque-tarifa-unidad');
+      var filaUnidad = document.getElementById('fila-tarifas-unidad');
       if (tipoCobro !== 'Por Ruta') {
-        bloqueUnidad.style.display = 'block';
-        document.getElementById('etiqueta-tarifa-unidad').textContent = 'Tarifa ' + tipoCobro.toLowerCase();
-        document.getElementById('valor-tarifa-unidad').textContent = money(resultado.tarifaPorUnidad);
+        filaUnidad.style.display = 'flex';
+        document.getElementById('etiqueta-unidad-piso').textContent = tipoCobro + ' (piso)';
+        document.getElementById('etiqueta-unidad-objetivo').textContent = tipoCobro + ' (objetivo)';
+        document.getElementById('valor-tarifa-unidad-piso').textContent = money(resultado.tarifaPorUnidadPiso);
+        document.getElementById('valor-tarifa-unidad-objetivo').textContent = money(resultado.tarifaPorUnidadObjetivo);
       } else {
-        bloqueUnidad.style.display = 'none';
+        filaUnidad.style.display = 'none';
       }
 
       document.getElementById('r-puestoPrincipal').textContent = resultado.puestoPrincipal;
@@ -367,16 +386,16 @@
         nuevoClienteNombre: document.getElementById('nuevoClienteNombre').value,
         rutaCliente: document.getElementById('rutaCliente').value,
         tipoRuta: document.getElementById('tipoRuta').value,
-        zona: document.getElementById('zona').value,
+        puntoA: document.getElementById('puntoA').value,
+        puntoB: document.getElementById('puntoB').value,
         tipoUnidad: document.getElementById('tipoUnidad').value,
         frecuencia: document.getElementById('frecuencia').value,
-        volumen: document.getElementById('volumen').value,
+        volumen: Number(document.getElementById('volumen').value) || '',
         km: Number(document.getElementById('km').value),
         tipoCobro: document.getElementById('tipoCobro').value,
         cantidad: Number(document.getElementById('cantidad').value),
         estacionMeli: document.getElementById('estacionMeli').value,
-        requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si',
-        margen: Number(document.getElementById('margen').value)
+        requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si'
       };
       ultimoCalculo = { datos: datos, resultado: null };
 

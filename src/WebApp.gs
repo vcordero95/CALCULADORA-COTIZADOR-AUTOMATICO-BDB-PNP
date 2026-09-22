@@ -30,17 +30,17 @@ function obtenerCatalogos() {
 }
 
 /**
- * Catalogos para el dashboard de Comercial: Zona/Ciudad y Tipo de Unidad
- * salen de sus catalogos; Tipo de Ruta, Frecuencia y Tipo de Cobro son
- * categorias fijas del negocio. Cliente sale de Tarifas Vigentes, mas la
- * opcion fija "Nuevo Cliente" (para clientes que aun no tienen tarifa
- * registrada). Estaciones MELI solo aplica cuando Cliente = Mercado Libre
- * y Tipo de Cobro = Por Ruta (rutas dedicadas).
+ * Catalogos para el dashboard de Comercial: Puntos (origen/destino) y
+ * Tipo de Unidad salen de sus catalogos; Tipo de Ruta, Frecuencia y Tipo
+ * de Cobro son categorias fijas del negocio. Cliente sale de Tarifas
+ * Vigentes, mas la opcion fija "Nuevo Cliente" (para clientes que aun no
+ * tienen tarifa registrada). Estaciones MELI solo aplica cuando Cliente =
+ * Mercado Libre y Tipo de Cobro = Por Ruta (rutas dedicadas).
  */
 function obtenerCatalogosComercial() {
   var soloLlenos = function (valor) { return valor !== ''; };
 
-  var zonas = SpreadsheetApp.getActive().getSheetByName(HOJA_ZONAS)
+  var puntos = SpreadsheetApp.getActive().getSheetByName(HOJA_PUNTOS)
     .getRange(2, 1, FILAS_CATALOGO, 1).getValues()
     .map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
@@ -48,14 +48,14 @@ function obtenerCatalogosComercial() {
     .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
   var clientesUnicos = {};
-  _TARIFAS_VIGENTES_DATA.forEach(function (fila) { clientesUnicos[fila[0]] = true; });
+  _TARIFAS_VIGENTES_DATA.forEach(function (fila) { clientesUnicos[fila[1]] = true; });
   var clientes = Object.keys(clientesUnicos).sort();
   clientes.push('Nuevo Cliente');
 
   var estacionesMeli = _MELI_ESTACIONES_DATA.map(function (fila) { return fila[0]; });
 
   return {
-    zonas: zonas,
+    puntos: puntos,
     unidades: unidades,
     tiposRuta: TIPOS_RUTA,
     frecuencias: FRECUENCIAS,
@@ -125,17 +125,17 @@ function siguienteFilaLibreCotizador_(sheet) {
 
 /**
  * Calcula una solicitud de tarifa de cliente desde el dashboard de
- * Comercial, reusando SOLICITAR_TARIFA(). El margen llega del formulario
- * en porcentaje (20) y aqui se convierte a fraccion (0.20). Ademas agrega,
- * como referencia (no como parte del calculo de costo), las tarifas
- * vigentes del Cliente elegido y, si aplica (Mercado Libre + Por Ruta +
- * Estacion capturada), la tarifa vigente de ruta dedicada de MELI.
+ * Comercial, reusando SOLICITAR_TARIFA(). Comercial no captura margen: se
+ * usa la politica fija de la empresa (Margen Piso / Margen Objetivo en
+ * Config) y se regresan ambas tarifas. Ademas agrega, como referencia (no
+ * como parte del calculo de costo), las tarifas vigentes del Cliente
+ * elegido y, si aplica (Mercado Libre + Por Ruta + Estacion capturada),
+ * la tarifa vigente de ruta dedicada de MELI.
  */
 function calcularSolicitudWeb(datos) {
-  var margenFraccion = Number(datos.margen) / 100;
   var resultado = SOLICITAR_TARIFA(
-    datos.tipoRuta, datos.zona, datos.tipoUnidad, datos.frecuencia, datos.km,
-    datos.tipoCobro, datos.cantidad, !!datos.requiereAuxiliar, margenFraccion
+    datos.tipoRuta, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
+    datos.tipoCobro, datos.cantidad, !!datos.requiereAuxiliar
   );
 
   resultado.referenciasVigentes = [];
@@ -163,20 +163,20 @@ function guardarSolicitudWeb(datos, resultado) {
   }
 
   var fila = sheet.getLastRow() + 1;
-  var margenFraccion = Number(datos.margen) / 100;
   var clienteRegistrado = datos.cliente === 'Nuevo Cliente'
     ? 'Nuevo Cliente: ' + (datos.nuevoClienteNombre || '')
     : (datos.cliente || '');
   var tarifaVigenteRegistrada = resultado.tarifaMeli ? resultado.tarifaMeli.tarifa : '';
 
-  sheet.getRange(fila, 1, 1, 28).setValues([[
-    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.tipoRuta, datos.zona, datos.tipoUnidad,
+  sheet.getRange(fila, 1, 1, 32).setValues([[
+    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.tipoRuta, datos.puntoA, datos.puntoB, datos.tipoUnidad,
     datos.frecuencia, datos.volumen || '', Number(datos.km) || 0, datos.tipoCobro, Number(datos.cantidad) || '',
     datos.requiereAuxiliar ? 'Si' : 'No', datos.estacionMeli || '',
     resultado.puestoPrincipal, resultado.puestoAuxiliar, resultado.costoCasetas, resultado.viajesMes,
     resultado.sueldoMensual, resultado.rentaMensual, resultado.mantenimientoMensual, resultado.costoGasolinaKm,
-    resultado.costoVariable, resultado.costoFijoProrrateado, resultado.costoTotal, margenFraccion,
-    resultado.tarifaPiso, resultado.tarifaPorUnidad, tarifaVigenteRegistrada
+    resultado.costoVariable, resultado.costoFijoProrrateado, resultado.costoTotal,
+    resultado.margenPiso, resultado.margenObjetivo, resultado.tarifaPiso, resultado.tarifaObjetivo,
+    resultado.tarifaPorUnidadPiso, resultado.tarifaPorUnidadObjetivo, tarifaVigenteRegistrada
   ]]);
 
   return true;

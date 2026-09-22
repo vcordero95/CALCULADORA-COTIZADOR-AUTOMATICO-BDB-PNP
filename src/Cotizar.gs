@@ -1,19 +1,15 @@
 /**
- * Matematica compartida de costo/tarifa, una vez que ya se resolvieron
- * renta, mantenimiento, gasolina/km, sueldo mensual, km, viajes al mes,
- * casetas y margen (sin importar si esos datos vinieron de COTIZAR(), que
- * los toma directo, o de SOLICITAR_TARIFA(), que los resuelve a partir de
- * Tipo de Ruta / Zona / Frecuencia).
+ * Matematica compartida de costo, una vez que ya se resolvieron renta,
+ * mantenimiento, gasolina/km, sueldo mensual, km, viajes al mes y casetas
+ * (sin importar si esos datos vinieron de COTIZAR(), que los toma
+ * directo, o de SOLICITAR_TARIFA(), que los resuelve a partir de Tipo de
+ * Ruta / Punto A / Punto B / Frecuencia). No incluye el margen: eso lo
+ * aplica cada quien por separado con aplicarMargen_().
  */
-function calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, casetas, margen) {
+function calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, casetas) {
   var viajes = Number(viajesMes) || 0;
   if (viajes <= 0) {
     throw new Error('Falta capturar "Viajes al mes" (mayor a 0) para prorratear los costos fijos.');
-  }
-
-  var margenPct = Number(margen) || 0;
-  if (margenPct >= 1) {
-    throw new Error('El margen debe ser menor a 100%.');
   }
 
   var kilometros = Number(km) || 0;
@@ -23,14 +19,21 @@ function calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, suel
   var costoFijoMensual = Number(sueldoMensual) + Number(rentaMensual) + Number(mantenimientoMensual);
   var costoFijoProrrateado = costoFijoMensual / viajes;
   var costoTotal = costoVariable + costoFijoProrrateado + costoCasetas;
-  var tarifaPiso = costoTotal / (1 - margenPct);
 
   return {
     costoVariable: costoVariable,
     costoFijoProrrateado: costoFijoProrrateado,
-    costoTotal: costoTotal,
-    tarifaPiso: tarifaPiso
+    costoTotal: costoTotal
   };
+}
+
+/** Tarifa = Costo ÷ (1 - Margen). Margen como fraccion (0.20 = 20%). */
+function aplicarMargen_(costoTotal, margen) {
+  var margenPct = Number(margen) || 0;
+  if (margenPct >= 1) {
+    throw new Error('El margen debe ser menor a 100%.');
+  }
+  return costoTotal / (1 - margenPct);
 }
 
 function obtenerHojaCostosUnidad_() {
@@ -114,7 +117,8 @@ function COTIZAR(tipoUnidad, puesto, km, viajesMes, casetas, margen) {
   var gasolinaKm = Number(filaUnidad[7]) || 0;
   var sueldoMensual = Number(filaNomina[7]) || 0;
 
-  var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, casetas, margen);
+  var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, casetas);
+  var tarifaPiso = aplicarMargen_(r.costoTotal, margen);
 
-  return [[sueldoMensual, gasolinaKm, rentaMensual, mantenimientoMensual, r.costoVariable, r.costoFijoProrrateado, r.costoTotal, r.tarifaPiso]];
+  return [[sueldoMensual, gasolinaKm, rentaMensual, mantenimientoMensual, r.costoVariable, r.costoFijoProrrateado, r.costoTotal, tarifaPiso]];
 }
