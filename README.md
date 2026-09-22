@@ -21,14 +21,15 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   Puesto/Categoría de Sueldo. Es la hoja **Cotizador** y el dashboard
   `?vista=interna`.
 - **Dashboard de Comercial (solicitud de tarifa de cliente)** — Comercial
-  no ve costos ni margen: captura Cliente, Tipo de Ruta, Punto A (origen),
-  Punto B (destino), Tipo de Unidad, Frecuencia, Volumen (cantidad de
-  paquetes), km, Tipo de Cobro y si necesita auxiliar. El sistema resuelve
-  solo el Puesto (y el Auxiliar), el costo de casetas de esa ruta y los
-  viajes al mes por frecuencia; calcula la Tarifa Piso (20%) y la Tarifa
-  Objetivo (30%) con la política fija de margen de la empresa, y las
-  muestra junto a las tarifas vigentes registradas para ese cliente. Es la
-  hoja **Solicitudes** y el dashboard por default (sin `?vista=`).
+  no ve costos ni margen: captura Cliente, Tipo de Ruta, Punto B
+  (destino) — y Punto A (origen) solo si el Tipo de Ruta lleva caseta —,
+  Tipo de Unidad, Frecuencia, Volumen (cantidad de paquetes), km, Tipo de
+  Cobro y si necesita auxiliar. El sistema resuelve solo el Puesto (y el
+  Auxiliar), el costo de casetas de esa ruta y los viajes al mes por
+  frecuencia; calcula la Tarifa Piso (20%) y la Tarifa Objetivo (30%) con
+  la política fija de margen de la empresa, y las muestra junto a las
+  tarifas vigentes registradas para ese cliente. Es la hoja
+  **Solicitudes** y el dashboard por default (sin `?vista=`).
 
 La tarifa para proveedores de red externa **no** está incluida todavía
 (queda para después, como marca el brief original).
@@ -91,15 +92,21 @@ Catálogos (los mantiene Vanessa):
   orden). Trae 3 rutas de ejemplo con datos reales de prensa sobre las
   tarifas CAPUFE 2026 (columna Fuente) — **son un punto de partida a
   validar/actualizar** con el PDF oficial de CAPUFE para el tipo de
-  unidad real de la flota, no un dato exacto por vehículo.
+  unidad real de la flota, no un dato exacto por vehículo. Si Comercial
+  cotiza una ruta que todavía no está aquí, el sistema no se bloquea:
+  estima el costo con kilómetros × Costo Casetas Estimado ($/km) de
+  `Config`, para poder cotizar cualquier ruta del país desde el día uno.
 - **Ruta-Zona-Puesto** — para cada combinación de Tipo de Ruta + Destino
   (Punto B), qué Puesto Principal (y cuál Auxiliar) aplica. Esto es lo
   que permite que Comercial elija Tipo de Ruta + Punto A/Punto B sin
   saber nada de nómina.
 - **Config** — precios de Diesel/Gasolina ($/L), la parte Fiscal por
-  periodo (Semanal/Quincenal), y la política de margen del dashboard de
-  Comercial: **Margen Piso (20%)** y **Margen Objetivo (30%)**. Editable
-  sin tocar el script.
+  periodo (Semanal/Quincenal), la política de margen del dashboard de
+  Comercial (**Margen Piso 20%** / **Margen Objetivo 30%**), y el
+  **Costo Casetas Estimado ($/km)** — ~$4.00/km, promedio nacional de
+  camión de 2 ejes calculado con cobertura de prensa 2026 sobre tarifas
+  CAPUFE en México-Querétaro, México-Puebla, México-Toluca,
+  Cuernavaca-Acapulco y México-Cuernavaca. Editable sin tocar el script.
 
 Referencia de tarifas de clientes (datos reales, cargados desde el
 tarifario de la empresa — solo dentro del Sheet, no en git):
@@ -137,7 +144,8 @@ Palet), además se calcula cada una entre la Cantidad capturada:
 ### Cómo resuelve solo el dashboard de Comercial
 
 - **Puesto Principal / Auxiliar** ← Tipo de Ruta + Punto B (destino), buscado en `Ruta-Zona-Puesto`. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
-- **Costo de Casetas** ← Punto A + Punto B (sin importar el orden), buscado en `Casetas`.
+- **¿Lleva casetas?** ← lo decide el **Tipo de Ruta**: `Local` (dentro de la misma ciudad) no lleva; `Foráneo`, `Line Haul` y `Media Milla` (rutas de Punto A a Punto B) sí llevan.
+- **Costo de Casetas** (cuando aplica) ← se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si esa ruta exacta no está capturada, se estima con km × Costo Casetas Estimado de `Config` (se marca como "estimado" en el resultado y en la hoja Solicitudes, para que Vanessa sepa qué rutas conviene capturar con dato real).
 - **Viajes al Mes** ← Frecuencia (ej. `7x7`, `5x7`): se toma el primer número (veces por semana) × 4.33.
 
 ## Puesta en marcha (Google Sheets)

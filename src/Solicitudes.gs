@@ -1,14 +1,15 @@
 /**
- * Costo de casetas entre dos puntos (Punto A y Punto B), sin importar el
- * orden en que se busquen (A->B cuesta lo mismo que B->A). Regresa null
- * si esa ruta no esta capturada en la hoja Casetas.
+ * Busca el costo de casetas EXACTO entre dos puntos (Punto A y Punto B),
+ * sin importar el orden (A->B cuesta lo mismo que B->A). Regresa null si
+ * esa ruta no esta capturada en la hoja Casetas (no truena: el llamador
+ * usa un estimado por km como respaldo).
  */
-function buscarCasetas_(puntoA, puntoB) {
+function buscarCasetasExacto_(puntoA, puntoB) {
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CASETAS);
   if (!hoja) {
     throw new Error('No existe la hoja "' + HOJA_CASETAS + '". Ejecuta Cotizador BDB > Inicializar hojas.');
   }
-  var datos = hoja.getRange(2, 1, FILAS_CASETAS, 3).getValues();
+  var datos = hoja.getRange(2, 1, FILAS_CASETAS, 4).getValues();
   for (var i = 0; i < datos.length; i++) {
     var a = datos[i][0];
     var b = datos[i][1];
@@ -17,6 +18,43 @@ function buscarCasetas_(puntoA, puntoB) {
     }
   }
   return null;
+}
+
+/** Costo de casetas estimado ($/km), tomado de Config, para cuando la ruta no esta en el catalogo. */
+function obtenerCostoCasetasPorKm_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CONFIG);
+  if (!hoja) {
+    throw new Error('No existe la hoja "' + HOJA_CONFIG + '". Ejecuta Cotizador BDB > Inicializar hojas.');
+  }
+  return Number(hoja.getRange(7, 2).getValue()) || 0;
+}
+
+/**
+ * Resuelve el costo de casetas de una ruta. Si Tipo de Ruta es "Local"
+ * (dentro de la misma ciudad) no lleva caseta. Si es Foraneo, Line Haul o
+ * Media Milla (de Punto A a Punto B) si lleva: se busca el costo exacto
+ * en la hoja Casetas, y si esa ruta especifica todavia no esta
+ * capturada, se estima con kilometros x Costo Casetas Estimado ($/km) de
+ * Config, para poder cotizar cualquier ruta del pais sin esperar a que el
+ * catalogo este completo.
+ */
+function resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km) {
+  if (TIPOS_RUTA_CON_CASETA.indexOf(tipoRuta) === -1) {
+    return { costo: 0, estimado: false, fuente: 'No aplica (Tipo de Ruta Local)' };
+  }
+
+  var filaExacta = (puntoA && puntoB) ? buscarCasetasExacto_(puntoA, puntoB) : null;
+  if (filaExacta) {
+    return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: filaExacta[3] || '' };
+  }
+
+  var costoPorKm = obtenerCostoCasetasPorKm_();
+  var kilometros = Number(km) || 0;
+  return {
+    costo: costoPorKm * kilometros,
+    estimado: true,
+    fuente: 'Estimado a ' + costoPorKm + ' $/km (ruta no esta en el catalogo Casetas)'
+  };
 }
 
 /**
@@ -64,9 +102,15 @@ function obtenerMargenesPolitica_() {
  * Calcula la tarifa de una solicitud de Comercial a partir de las
  * caracteristicas de la ruta, no de costos: Tipo de Ruta + Destino
  * (Punto B) resuelven el Puesto principal (y el Auxiliar, si la ruta lo
- * necesita) en la hoja Ruta-Zona-Puesto; Punto A + Punto B resuelven el
- * Costo de Casetas en la hoja Casetas; la Frecuencia resuelve los Viajes
- * al Mes (veces por semana x 4.33).
+ * necesita) en la hoja Ruta-Zona-Puesto; la Frecuencia resuelve los
+ * Viajes al Mes (veces por semana x 4.33).
+ *
+ * El Costo de Casetas depende del Tipo de Ruta: "Local" no lleva caseta;
+ * "Foraneo", "Line Haul" y "Media Milla" (rutas de Punto A a Punto B) si
+ * llevan, y se resuelve con Punto A + Punto B en la hoja Casetas — o, si
+ * esa ruta especifica todavia no esta capturada, con un estimado por km
+ * (ver resolverCostoCasetas_()) para poder cotizar cualquier ruta del
+ * pais sin depender de tener el catalogo completo.
  *
  * El margen NO lo captura Comercial: se usa la politica fija de la
  * empresa (Margen Piso / Margen Objetivo en Config), y se regresan ambas
@@ -85,11 +129,6 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
   }
   if (filaUnidad[7] === '') {
     throw new Error('Completa Rendimiento y Tipo de Combustible de "' + tipoUnidad + '" en ' + HOJA_COSTOS_UNIDAD + '.');
-  }
-
-  var filaCasetas = buscarCasetas_(puntoA, puntoB);
-  if (!filaCasetas) {
-    throw new Error('No hay costo de casetas capturado entre "' + puntoA + '" y "' + puntoB + '" en la hoja "' + HOJA_CASETAS + '".');
   }
 
   var mapeo = buscarRutaZonaPuesto_(tipoRuta, puntoB);
@@ -137,7 +176,8 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
   var rentaMensual = Number(filaUnidad[1]) || 0;
   var mantenimientoMensual = Number(filaUnidad[3]) || 0;
   var gasolinaKm = Number(filaUnidad[7]) || 0;
-  var costoCasetas = Number(filaCasetas[2]) || 0;
+  var infoCasetas = resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km);
+  var costoCasetas = infoCasetas.costo;
 
   var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, costoCasetas);
 
@@ -160,6 +200,8 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
     puestoPrincipal: puestoPrincipal,
     puestoAuxiliar: puestoAuxiliarUsado,
     costoCasetas: costoCasetas,
+    casetasEstimadas: infoCasetas.estimado,
+    casetasFuente: infoCasetas.fuente,
     viajesMes: viajesMes,
     sueldoMensual: sueldoMensual,
     rentaMensual: rentaMensual,

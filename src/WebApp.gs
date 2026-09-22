@@ -58,6 +58,7 @@ function obtenerCatalogosComercial() {
     puntos: puntos,
     unidades: unidades,
     tiposRuta: TIPOS_RUTA,
+    tiposRutaConCaseta: TIPOS_RUTA_CON_CASETA,
     frecuencias: FRECUENCIAS,
     tiposCobro: TIPOS_COBRO,
     clientes: clientes,
@@ -168,11 +169,12 @@ function guardarSolicitudWeb(datos, resultado) {
     : (datos.cliente || '');
   var tarifaVigenteRegistrada = resultado.tarifaMeli ? resultado.tarifaMeli.tarifa : '';
 
-  sheet.getRange(fila, 1, 1, 32).setValues([[
-    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.tipoRuta, datos.puntoA, datos.puntoB, datos.tipoUnidad,
+  sheet.getRange(fila, 1, 1, 33).setValues([[
+    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.tipoRuta, datos.puntoA || '', datos.puntoB, datos.tipoUnidad,
     datos.frecuencia, datos.volumen || '', Number(datos.km) || 0, datos.tipoCobro, Number(datos.cantidad) || '',
     datos.requiereAuxiliar ? 'Si' : 'No', datos.estacionMeli || '',
-    resultado.puestoPrincipal, resultado.puestoAuxiliar, resultado.costoCasetas, resultado.viajesMes,
+    resultado.puestoPrincipal, resultado.puestoAuxiliar, resultado.costoCasetas,
+    resultado.casetasEstimadas ? 'Si' : 'No', resultado.viajesMes,
     resultado.sueldoMensual, resultado.rentaMensual, resultado.mantenimientoMensual, resultado.costoGasolinaKm,
     resultado.costoVariable, resultado.costoFijoProrrateado, resultado.costoTotal,
     resultado.margenPiso, resultado.margenObjetivo, resultado.tarifaPiso, resultado.tarifaObjetivo,

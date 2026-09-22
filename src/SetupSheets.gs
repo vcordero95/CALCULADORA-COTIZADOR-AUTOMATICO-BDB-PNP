@@ -27,8 +27,13 @@ var FILAS_SOLICITUDES = 500;
  * Valores fijos de Tipo de Ruta, Frecuencia y Tipo de Cobro. Son
  * categorias estables del negocio (no un catalogo que crezca), por eso
  * van fijas en el codigo en vez de en una hoja.
+ *
+ * Tipo de Ruta es lo que determina si la ruta lleva o no casetas: Local
+ * es dentro de una misma ciudad (no lleva caseta); Foraneo, Line Haul y
+ * Media Milla son de Punto A a Punto B (si llevan caseta).
  */
-var TIPOS_RUTA = ['Local', 'Foráneo'];
+var TIPOS_RUTA = ['Local', 'Foráneo', 'Line Haul', 'Media Milla'];
+var TIPOS_RUTA_CON_CASETA = ['Foráneo', 'Line Haul', 'Media Milla'];
 var FRECUENCIAS = ['7x7', '6x7', '5x7', '4x7', '3x7', '2x7', '1x7'];
 var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
 
@@ -67,10 +72,15 @@ function initializeProject() {
 }
 
 /**
- * "Config": precios de combustible, parte fiscal por periodo, y la
+ * "Config": precios de combustible, parte fiscal por periodo, la
  * politica de margen (Piso / Objetivo) que usa el dashboard de Comercial
- * en vez de pedirle el margen a Comercial. Editable sin tocar el script
- * cuando cambien.
+ * en vez de pedirle el margen a Comercial, y el costo de casetas
+ * estimado por km (respaldo cuando Punto A + Punto B no esta en la hoja
+ * Casetas: ~$4.00/km, promedio de camion de 2 ejes calculado con
+ * cobertura de prensa 2026 sobre tarifas CAPUFE en varios corredores —
+ * Mexico-Queretaro, Mexico-Puebla, Mexico-Toluca, Cuernavaca-Acapulco,
+ * Mexico-Cuernavaca. Es un promedio nacional, no un dato exacto por
+ * ruta). Editable sin tocar el script cuando cambien.
  */
 function setupConfig_() {
   var ss = SpreadsheetApp.getActive();
@@ -83,12 +93,14 @@ function setupConfig_() {
     ['Fiscal Semanal', 2253.6],
     ['Fiscal Quincenal', 5190.6],
     ['Margen Piso', 0.2],
-    ['Margen Objetivo', 0.3]
+    ['Margen Objetivo', 0.3],
+    ['Costo Casetas Estimado ($/km)', 4.0]
   ];
   sheet.getRange(1, 1, datos.length, 2).setValues(datos);
   sheet.getRange(1, 1, datos.length, 1).setFontWeight('bold');
   sheet.getRange(1, 2, 4, 1).setNumberFormat('$#,##0.00');
   sheet.getRange(5, 2, 2, 1).setNumberFormat('0%');
+  sheet.getRange(7, 2, 1, 1).setNumberFormat('$#,##0.00');
   sheet.autoResizeColumns(1, 2);
   return sheet;
 }
@@ -199,6 +211,8 @@ function setupNomina_() {
   var ejemplo = [
     ['Chofer Local', 3200, 'Semanal'],
     ['Chofer Foraneo', 7800, 'Quincenal'],
+    ['Chofer Line Haul', 9500, 'Quincenal'],
+    ['Chofer Media Milla', 8200, 'Quincenal'],
     ['Auxiliar Local', 1800, 'Semanal'],
     ['Auxiliar Foraneo', 4200, 'Quincenal']
   ];
@@ -304,7 +318,9 @@ function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   var ejemplo = [
     ['Local', 'CDMX', 'Chofer Local', 'Auxiliar Local'],
     ['Foráneo', 'Monterrey', 'Chofer Foraneo', 'Auxiliar Foraneo'],
-    ['Foráneo', 'Guadalajara', 'Chofer Foraneo', 'Auxiliar Foraneo']
+    ['Foráneo', 'Guadalajara', 'Chofer Foraneo', 'Auxiliar Foraneo'],
+    ['Line Haul', 'Querétaro', 'Chofer Line Haul', ''],
+    ['Media Milla', 'Puebla', 'Chofer Media Milla', '']
   ];
   sheet.getRange(2, 1, ejemplo.length, 4).setValues(ejemplo);
   sheet.autoResizeColumns(1, headers.length);
@@ -368,7 +384,7 @@ function setupSolicitudes_() {
   var headers = [
     'Fecha', 'Cliente', 'Referencia de Ruta', 'Tipo de Ruta', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
     'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
-    'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Viajes al Mes',
+    'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Casetas Estimadas', 'Viajes al Mes',
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',
     'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total',
     'Margen Piso', 'Margen Objetivo', 'Tarifa Piso', 'Tarifa Objetivo',

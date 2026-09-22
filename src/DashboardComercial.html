@@ -136,9 +136,9 @@
         </div>
 
         <div class="fila-doble">
-          <div>
+          <div id="campo-punto-a">
             <label for="puntoA">Punto A <span class="ayuda">(origen)</span></label>
-            <select id="puntoA" required></select>
+            <select id="puntoA"></select>
           </div>
           <div>
             <label for="puntoB">Punto B <span class="ayuda">(destino)</span></label>
@@ -215,7 +215,7 @@
       <table>
         <tr><td>Puesto principal</td><td id="r-puestoPrincipal"></td></tr>
         <tr><td>Puesto auxiliar</td><td id="r-puestoAuxiliar"></td></tr>
-        <tr><td>Costo casetas (Punto A - Punto B)</td><td id="r-costoCasetas"></td></tr>
+        <tr><td id="etiqueta-costoCasetas">Costo casetas</td><td id="r-costoCasetas"></td></tr>
         <tr><td>Viajes al mes (frecuencia)</td><td id="r-viajesMes"></td></tr>
         <tr><td>Costo variable (gasolina)</td><td id="r-costoVariable"></td></tr>
         <tr><td>Costo fijo prorrateado</td><td id="r-costoFijoProrrateado"></td></tr>
@@ -251,6 +251,7 @@
 
   <script>
     var ultimoCalculo = null;
+    var tiposRutaConCaseta = [];
 
     function money(n) {
       return '$' + Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -269,6 +270,7 @@
     function actualizarVisibilidadCampos() {
       var cliente = document.getElementById('cliente').value;
       var tipoCobro = document.getElementById('tipoCobro').value;
+      var tipoRuta = document.getElementById('tipoRuta').value;
 
       var esNuevoCliente = cliente === 'Nuevo Cliente';
       document.getElementById('campo-nuevo-cliente').style.display = esNuevoCliente ? 'block' : 'none';
@@ -276,6 +278,12 @@
 
       var esMeliDedicada = cliente === 'Mercado Libre' && tipoCobro === 'Por Ruta';
       document.getElementById('campo-estacion-meli').style.display = esMeliDedicada ? 'block' : 'none';
+
+      var llevaCaseta = tiposRutaConCaseta.indexOf(tipoRuta) !== -1;
+      var puntoA = document.getElementById('puntoA');
+      document.getElementById('campo-punto-a').style.display = llevaCaseta ? 'block' : 'none';
+      puntoA.required = llevaCaseta;
+      if (!llevaCaseta) puntoA.value = '';
     }
 
     function cargarCatalogos() {
@@ -289,11 +297,14 @@
           poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
           poblarSelect(document.getElementById('cliente'), catalogos.clientes);
           poblarSelect(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
+          tiposRutaConCaseta = catalogos.tiposRutaConCaseta;
           actualizarVisibilidadCampos();
         })
         .withFailureHandler(mostrarError)
         .obtenerCatalogosComercial();
     }
+
+    document.getElementById('tipoRuta').addEventListener('change', actualizarVisibilidadCampos);
 
     document.getElementById('cliente').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('tipoCobro').addEventListener('change', actualizarVisibilidadCampos);
@@ -358,6 +369,8 @@
       document.getElementById('r-puestoPrincipal').textContent = resultado.puestoPrincipal;
       document.getElementById('r-puestoAuxiliar').textContent = resultado.puestoAuxiliar || '—';
       document.getElementById('r-costoCasetas').textContent = money(resultado.costoCasetas);
+      document.getElementById('etiqueta-costoCasetas').textContent =
+        'Costo casetas' + (resultado.casetasEstimadas ? ' (estimado por km, agrega la ruta exacta a Casetas para precisión)' : ' (Punto A - Punto B)');
       document.getElementById('r-viajesMes').textContent = Number(resultado.viajesMes).toFixed(1);
       document.getElementById('r-costoVariable').textContent = money(resultado.costoVariable);
       document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
