@@ -52,6 +52,14 @@ function obtenerHojaNomina_() {
   return hoja;
 }
 
+function obtenerHojaPuntos_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_PUNTOS);
+  if (!hoja) {
+    throw new Error('No existe la hoja "' + HOJA_PUNTOS + '". Ejecuta Cotizador BDB > Inicializar hojas.');
+  }
+  return hoja;
+}
+
 /** Busca un Tipo de Unidad en la hoja Costos Unidad. Regresa null si no existe. */
 function buscarUnidadPorTipo_(tipoUnidad) {
   var datos = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 8).getValues();
