@@ -1,19 +1,21 @@
 /**
  * Calcula el costo y la tarifa piso de una ruta.
  *
- * Busca en la Hoja Maestra, para el tipo de unidad dado, el costo de
- * gasolina por km (ya resuelto segun Diesel/Gasolina) y el sueldo mensual
- * total (nomina ya convertida a mensual), los suma a la renta y el
- * mantenimiento mensuales, prorratea ese costo fijo entre los viajes al
- * mes, suma las casetas de la ruta y aplica la tarifa piso:
- * Costo ÷ (1 - Margen).
+ * El Tipo de Unidad y el Puesto / Categoria de Sueldo son independientes:
+ * se buscan cada uno en su propia tabla de la Hoja Maestra (Costos por
+ * Tipo de Unidad y Nomina). Se toma el costo de gasolina por km (ya
+ * resuelto segun Diesel/Gasolina) y la renta y mantenimiento mensuales de
+ * la unidad, se suma el sueldo mensual total del puesto elegido, se
+ * prorratea ese costo fijo entre los viajes al mes, se suman las casetas
+ * de la ruta y se aplica la tarifa piso: Costo ÷ (1 - Margen).
  *
- * Se usa como formula de hoja de calculo, ej. =COTIZAR(C2,D2,F2,G2,H2),
- * y regresa un renglon con 8 columnas: Sueldo Mensual, Costo Gasolina/KM,
- * Renta Mensual, Mantenimiento Mensual, Costo Variable, Costo Fijo
- * Prorrateado, Costo Total, Tarifa Piso.
+ * Se usa como formula de hoja de calculo, ej.
+ * =COTIZAR(C2,D2,E2,G2,H2,I2), y regresa un renglon con 8 columnas:
+ * Sueldo Mensual, Costo Gasolina/KM, Renta Mensual, Mantenimiento Mensual,
+ * Costo Variable, Costo Fijo Prorrateado, Costo Total, Tarifa Piso.
  *
- * @param {string} tipoUnidad Tipo de unidad, tal como aparece en la Hoja Maestra.
+ * @param {string} tipoUnidad Tipo de unidad, tal como aparece en la tabla "Costos por Tipo de Unidad".
+ * @param {string} puesto Puesto / Categoria de sueldo, tal como aparece en la tabla "Nomina".
  * @param {number} km Kilometros de la ruta.
  * @param {number} viajesMes Viajes al mes, para prorratear los costos fijos.
  * @param {number} casetas Costo de casetas de la ruta o corredor.
@@ -21,8 +23,9 @@
  * @return {Array<Array<number>>} Renglon con los 8 valores calculados.
  * @customfunction
  */
-function COTIZAR(tipoUnidad, km, viajesMes, casetas, margen) {
-  if (tipoUnidad === '' || tipoUnidad === undefined || tipoUnidad === null) {
+function COTIZAR(tipoUnidad, puesto, km, viajesMes, casetas, margen) {
+  if (tipoUnidad === '' || tipoUnidad === undefined || tipoUnidad === null ||
+      puesto === '' || puesto === undefined || puesto === null) {
     return [['', '', '', '', '', '', '', '']];
   }
 
@@ -31,34 +34,43 @@ function COTIZAR(tipoUnidad, km, viajesMes, casetas, margen) {
     throw new Error('No existe la hoja "Hoja Maestra". Ejecuta Cotizador BDB > Inicializar hojas.');
   }
 
-  var lastRow = hoja.getLastRow();
-  if (lastRow < 2) {
-    throw new Error('La Hoja Maestra no tiene tipos de unidad capturados.');
-  }
-
-  // A: Tipo de Unidad, B: Renta Mensual, D: Mantenimiento Mensual,
-  // H: Costo Gasolina por KM, O: Sueldo Mensual Total.
-  var catalogo = hoja.getRange(2, 1, lastRow - 1, 15).getValues();
-  var fila = null;
-  for (var i = 0; i < catalogo.length; i++) {
-    if (catalogo[i][0] === tipoUnidad) {
-      fila = catalogo[i];
+  // Tabla "Costos por Tipo de Unidad": A Tipo de Unidad, B Renta Mensual,
+  // D Mantenimiento Mensual, H Costo Gasolina por KM.
+  var catalogoUnidad = hoja.getRange(FILA_DATOS_MAESTRA, 1, FILAS_MAESTRA, 8).getValues();
+  var filaUnidad = null;
+  for (var i = 0; i < catalogoUnidad.length; i++) {
+    if (catalogoUnidad[i][0] === tipoUnidad) {
+      filaUnidad = catalogoUnidad[i];
       break;
     }
   }
-  if (!fila) {
-    throw new Error('Tipo de unidad "' + tipoUnidad + '" no esta en la Hoja Maestra.');
+  if (!filaUnidad) {
+    throw new Error('Tipo de unidad "' + tipoUnidad + '" no esta en la tabla "Costos por Tipo de Unidad".');
   }
-  if (fila[7] === '' || fila[14] === '') {
-    throw new Error(
-      'Completa Rendimiento/Tipo de Combustible y Sueldo/Periodicidad de "' + tipoUnidad + '" en la Hoja Maestra.'
-    );
+  if (filaUnidad[7] === '') {
+    throw new Error('Completa Rendimiento y Tipo de Combustible de "' + tipoUnidad + '" en la Hoja Maestra.');
   }
 
-  var rentaMensual = Number(fila[1]) || 0;
-  var mantenimientoMensual = Number(fila[3]) || 0;
-  var gasolinaKm = Number(fila[7]) || 0;
-  var sueldoMensual = Number(fila[14]) || 0;
+  // Tabla "Nomina": J Puesto / Categoria de Sueldo, Q Sueldo Mensual Total.
+  var catalogoNomina = hoja.getRange(FILA_DATOS_MAESTRA, 10, FILAS_MAESTRA, 8).getValues();
+  var filaNomina = null;
+  for (var j = 0; j < catalogoNomina.length; j++) {
+    if (catalogoNomina[j][0] === puesto) {
+      filaNomina = catalogoNomina[j];
+      break;
+    }
+  }
+  if (!filaNomina) {
+    throw new Error('Puesto / categoria de sueldo "' + puesto + '" no esta en la tabla "Nomina".');
+  }
+  if (filaNomina[7] === '') {
+    throw new Error('Completa Sueldo y Periodicidad de "' + puesto + '" en la Hoja Maestra.');
+  }
+
+  var rentaMensual = Number(filaUnidad[1]) || 0;
+  var mantenimientoMensual = Number(filaUnidad[3]) || 0;
+  var gasolinaKm = Number(filaUnidad[7]) || 0;
+  var sueldoMensual = Number(filaNomina[7]) || 0;
 
   var viajes = Number(viajesMes) || 0;
   if (viajes <= 0) {

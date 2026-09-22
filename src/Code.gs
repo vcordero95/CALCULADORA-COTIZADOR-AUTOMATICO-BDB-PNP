@@ -22,24 +22,29 @@ function initializeProject() {
 }
 
 /**
- * Al elegir el Tipo de Unidad en la hoja Cotizador, coloca automaticamente
- * la formula COTIZAR() en esa fila para que el costo y la tarifa piso
- * aparezcan solos, sin que Sihanka tenga que copiar formulas a mano.
+ * Al elegir el Tipo de Unidad o el Puesto / Categoria de Sueldo en la hoja
+ * Cotizador, coloca automaticamente la formula COTIZAR() en esa fila para
+ * que el costo y la tarifa piso aparezcan solos, sin que Sihanka tenga que
+ * copiar formulas a mano. Como son dos catalogos independientes, la
+ * formula solo se coloca cuando ambos ya estan elegidos.
  */
 function onEdit(e) {
   try {
     var range = e.range;
     var sheet = range.getSheet();
     if (sheet.getName() !== COTIZADOR) return;
-    if (range.getRow() < 2 || range.getColumn() !== 3) return;
+    var row = range.getRow();
+    if (row < 2 || (range.getColumn() !== 3 && range.getColumn() !== 4)) return;
 
-    var formulaCell = sheet.getRange(range.getRow(), 9); // columna I
-    if (range.getValue() === '') {
+    var tipoUnidad = sheet.getRange(row, 3).getValue();
+    var puesto = sheet.getRange(row, 4).getValue();
+    var formulaCell = sheet.getRange(row, 10); // columna J
+
+    if (tipoUnidad === '' || puesto === '') {
       formulaCell.clearContent();
     } else {
       formulaCell.setFormula(
-        '=COTIZAR(C' + range.getRow() + ',D' + range.getRow() + ',F' + range.getRow() +
-        ',G' + range.getRow() + ',H' + range.getRow() + ')'
+        '=COTIZAR(C' + row + ',D' + row + ',E' + row + ',G' + row + ',H' + row + ',I' + row + ')'
       );
     }
   } catch (err) {
