@@ -7,7 +7,7 @@ var HOJA_COSTOS_UNIDAD = 'Costos Unidad';
 var HOJA_NOMINA = 'Nomina';
 var HOJA_PUNTOS = 'Puntos';
 var HOJA_CASETAS = 'Casetas';
-var HOJA_RUTA_ZONA_PUESTO = 'Ruta-Zona-Puesto';
+var HOJA_ALCANCE_PUESTO = 'Alcance-Puesto';
 var HOJA_CONFIG = 'Config';
 var COTIZADOR = 'Cotizador';
 var HOJA_SOLICITUDES = 'Solicitudes';
@@ -18,8 +18,8 @@ var FILAS_CATALOGO = 50;
 /** Filas reservadas para el catalogo de Puntos (cobertura nacional de ciudades). */
 var FILAS_PUNTOS = 300;
 
-/** Filas reservadas para combinaciones Tipo de Ruta + Destino, y para Casetas (Punto A + Punto B). */
-var FILAS_RUTA_ZONA = 100;
+/** Filas reservadas para Alcance-Puesto, y para Casetas (Punto A + Punto B). */
+var FILAS_ALCANCE = 100;
 var FILAS_CASETAS = 150;
 
 /** Filas reservadas para captura en Cotizador y Solicitudes. */
@@ -27,18 +27,28 @@ var FILAS_COTIZADOR = 500;
 var FILAS_SOLICITUDES = 500;
 
 /**
- * Valores fijos de Tipo de Ruta, Frecuencia y Tipo de Cobro. Son
+ * Valores fijos de Alcance, Modalidad, Frecuencia y Tipo de Cobro. Son
  * categorias estables del negocio (no un catalogo que crezca), por eso
  * van fijas en el codigo en vez de en una hoja.
  *
- * Tipo de Ruta es lo que determina si la ruta lleva o no casetas y si se
- * captura Punto A / Punto B: Local y Foraneo son operacion propia (un
- * solo Puesto por Tipo de Ruta, sin necesidad de Punto A/B ni caseta);
- * Line Haul y Media Milla son rutas de Punto A a Punto B (si llevan
- * caseta, y el Puesto se resuelve por Tipo de Ruta + Punto B).
+ * Alcance (Local/Foraneo) y Modalidad son dos campos independientes:
+ * cualquier Modalidad puede ser Local o Foranea. Alcance es lo que
+ * resuelve el Puesto (chofer local vs foraneo). Modalidad es lo que
+ * determina si se captura Punto A/Punto B (Line Haul, Media Milla,
+ * Service Partner y XPT si; Dedicada y Spot no) y como se calcula la
+ * tarifa:
+ *  - Dedicada, Spot, Line Haul, Media Milla: motor de costos (Costos
+ *    Unidad + Nomina + Casetas [solo Line Haul/Media Milla] + margen).
+ *  - Service Partner: tarifa de red ya negociada (no se calcula desde
+ *    costo): se busca en Tarifas Vigentes por Cliente.
+ *  - XPT (solo Mercado Libre): la misma tabla estandarizada de rutas
+ *    dedicadas de MELI (Estacion -> Nivel -> MELI Tarifas).
  */
-var TIPOS_RUTA = ['Local', 'Foráneo', 'Line Haul', 'Media Milla'];
-var TIPOS_RUTA_CON_CASETA = ['Line Haul', 'Media Milla'];
+var ALCANCES = ['Local', 'Foráneo'];
+var MODALIDADES = ['Dedicada', 'Spot', 'Service Partner', 'Line Haul', 'Media Milla', 'XPT'];
+var MODALIDADES_CON_PUNTO_A_B = ['Line Haul', 'Media Milla', 'Service Partner', 'XPT'];
+var MODALIDADES_CON_CASETA = ['Line Haul', 'Media Milla'];
+var MODALIDADES_MOTOR_COSTOS = ['Dedicada', 'Spot', 'Line Haul', 'Media Milla'];
 var FRECUENCIAS = ['7x7', '6x7', '5x7', '4x7', '3x7', '2x7', '1x7'];
 var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
 
@@ -52,7 +62,7 @@ function initializeProject() {
   var respuesta = ui.alert(
     'Inicializar hojas',
     'Esto borra y reconstruye TODAS las hojas del cotizador (Costos Unidad, Nomina, Puntos, Casetas, ' +
-    'Ruta-Zona-Puesto, Config, Cotizador, Solicitudes, Tarifas Vigentes, MELI Estaciones, MELI Tarifas), ' +
+    'Alcance-Puesto, Config, Cotizador, Solicitudes, Tarifas Vigentes, MELI Estaciones, MELI Tarifas), ' +
     'regresandolas a sus datos de ejemplo. Si ya capturaste costos reales, se perderan. ¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -63,14 +73,14 @@ function initializeProject() {
   var hojaNomina = setupNomina_();
   var hojaPuntos = setupPuntos_();
   setupCasetas_(hojaPuntos);
-  setupRutaZonaPuesto_(hojaPuntos, hojaNomina);
+  setupAlcancePuesto_(hojaNomina);
   setupCotizador_(hojaCostosUnidad, hojaNomina);
   setupSolicitudes_();
   setupTarifasVigentes_();
   setupMeliEstaciones_();
   setupMeliTarifas_();
   SpreadsheetApp.getUi().alert(
-    'Listo. Revisa "Costos Unidad", "Nomina", "Puntos", "Casetas", "Ruta-Zona-Puesto" y "Config" ' +
+    'Listo. Revisa "Costos Unidad", "Nomina", "Puntos", "Casetas", "Alcance-Puesto" y "Config" ' +
     '(catalogos); "Cotizador" / "Solicitudes" (registro de cotizaciones); y ' +
     '"Tarifas Vigentes" / "MELI Estaciones" / "MELI Tarifas" (referencia de tarifas actuales).'
   );
@@ -172,7 +182,7 @@ function setupCostosUnidad_() {
 /**
  * "Nomina": catalogo por Puesto / Categoria de Sueldo (NO por Tipo de
  * Unidad). Incluye puestos principales y de auxiliar; cual aplica a cada
- * ruta se resuelve en "Ruta-Zona-Puesto".
+ * ruta se resuelve en "Alcance-Puesto".
  */
 function setupNomina_() {
   var ss = SpreadsheetApp.getActive();
@@ -274,7 +284,7 @@ var _PUNTOS_NACIONAL = [
 /**
  * "Puntos": catalogo de ciudades/puntos que se usan como Punto A
  * (origen) y Punto B (destino) de una ruta, y como Destino en
- * Ruta-Zona-Puesto. Viene precargado con cobertura nacional (ver
+ * Alcance-Puesto. Viene precargado con cobertura nacional (ver
  * _PUNTOS_NACIONAL); Vanessa puede agregar mas ciudades abajo cuando
  * haga falta.
  */
@@ -356,46 +366,37 @@ function setupCasetas_(hojaPuntos) {
 }
 
 /**
- * "Ruta-Zona-Puesto": el Puesto principal (y el Auxiliar, si la ruta lo
- * necesita) que aplica para cada Tipo de Ruta. Para Local y Foraneo (que
- * no capturan Punto A/B) basta con el Tipo de Ruta, con Destino en
- * blanco; para Line Haul y Media Milla (rutas de Punto A a Punto B) se
- * resuelve por Tipo de Ruta + Destino (Punto B), ya que el puesto puede
- * variar segun el corredor especifico.
+ * "Alcance-Puesto": el Puesto principal (y el Auxiliar, si la ruta lo
+ * necesita) que aplica para cada Alcance (Local/Foraneo). Es independiente
+ * de la Modalidad (Dedicada, Line Haul, Media Milla, etc.): cualquier
+ * Modalidad puede ser Local o Foranea, y el chofer se asigna por Alcance
+ * unicamente.
  */
-function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
+function setupAlcancePuesto_(hojaNomina) {
   var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName(HOJA_RUTA_ZONA_PUESTO) || ss.insertSheet(HOJA_RUTA_ZONA_PUESTO);
+  var sheet = ss.getSheetByName(HOJA_ALCANCE_PUESTO) || ss.insertSheet(HOJA_ALCANCE_PUESTO);
   sheet.clear();
   sheet.getDataRange().clearDataValidations();
 
-  var headers = ['Tipo de Ruta', 'Destino (Punto B, solo Line Haul/Media Milla)', 'Puesto Principal', 'Puesto Auxiliar'];
+  var headers = ['Alcance', 'Puesto Principal', 'Puesto Auxiliar'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#4a1c3a').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
 
-  var tipoRutaRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(TIPOS_RUTA, true).setAllowInvalid(false).build();
-  sheet.getRange(2, 1, FILAS_RUTA_ZONA, 1).setDataValidation(tipoRutaRule);
-
-  var puntoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_PUNTOS, 1), true).setAllowInvalid(false).build();
-  sheet.getRange(2, 2, FILAS_RUTA_ZONA, 1).setDataValidation(puntoRule);
+  var alcanceRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(ALCANCES, true).setAllowInvalid(false).build();
+  sheet.getRange(2, 1, FILAS_ALCANCE, 1).setDataValidation(alcanceRule);
 
   var puestoRule = SpreadsheetApp.newDataValidation()
     .requireValueInRange(hojaNomina.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
-  sheet.getRange(2, 3, FILAS_RUTA_ZONA, 1).setDataValidation(puestoRule);
-  sheet.getRange(2, 4, FILAS_RUTA_ZONA, 1).setDataValidation(puestoRule);
+  sheet.getRange(2, 2, FILAS_ALCANCE, 1).setDataValidation(puestoRule);
+  sheet.getRange(2, 3, FILAS_ALCANCE, 1).setDataValidation(puestoRule);
 
   var ejemplo = [
-    ['Local', '', 'Chofer Local', 'Auxiliar Local'],
-    ['Foráneo', '', 'Chofer Foraneo', 'Auxiliar Foraneo'],
-    ['Line Haul', 'Querétaro', 'Chofer Line Haul', ''],
-    ['Line Haul', '', 'Chofer Line Haul', ''],
-    ['Media Milla', 'Puebla', 'Chofer Media Milla', ''],
-    ['Media Milla', '', 'Chofer Media Milla', '']
+    ['Local', 'Chofer Local', 'Auxiliar Local'],
+    ['Foráneo', 'Chofer Foraneo', 'Auxiliar Foraneo']
   ];
-  sheet.getRange(2, 1, ejemplo.length, 4).setValues(ejemplo);
+  sheet.getRange(2, 1, ejemplo.length, 3).setValues(ejemplo);
   sheet.autoResizeColumns(1, headers.length);
   return sheet;
 }
@@ -455,7 +456,7 @@ function setupSolicitudes_() {
   sheet.clear();
 
   var headers = [
-    'Fecha', 'Cliente', 'Referencia de Ruta', 'Tipo de Ruta', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
+    'Fecha', 'Cliente', 'Referencia de Ruta', 'Alcance', 'Modalidad', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
     'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
     'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Casetas Estimadas', 'Viajes al Mes',
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',

@@ -22,15 +22,30 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   `?vista=interna`.
 - **Dashboard de Comercial (solicitud de tarifa de cliente)** — Comercial
   no ve costos ni margen. Primero elige qué necesita:
-  - **Tarifa nueva** (calcular desde cero): captura Cliente, Tipo de Ruta,
-    Tipo de Unidad, Frecuencia, Volumen (cantidad de paquetes), km, Tipo
-    de Cobro y si necesita auxiliar — y Punto A / Punto B solo si el Tipo
-    de Ruta es Line Haul o Media Milla (rutas de punto a punto; Local y
-    Foráneo son operación propia y no los piden). El sistema resuelve
-    solo el Puesto (y el Auxiliar), el costo de casetas de esa ruta y los
-    viajes al mes por frecuencia; calcula la Tarifa Piso (20%) y la
-    Tarifa Objetivo (30%) con la política fija de margen de la empresa.
-    Es la hoja **Solicitudes**.
+  - **Tarifa nueva** (calcular desde cero): captura Cliente, **Alcance**
+    (Local/Foráneo) y **Modalidad** (Dedicada, Spot, Service Partner,
+    Line Haul, Media Milla, XPT) por separado — cualquier Modalidad
+    puede ser Local o Foránea —, Tipo de Unidad, Frecuencia, Volumen
+    (cantidad de paquetes), km, Tipo de Cobro y si necesita auxiliar; y
+    Punto A / Punto B solo si la Modalidad es Line Haul, Media Milla,
+    Service Partner o XPT (rutas de punto a punto; Dedicada y Spot no
+    los piden). Según la Modalidad, el sistema calcula distinto:
+    - **Dedicada, Spot, Line Haul, Media Milla**: motor de costos completo
+      (resuelve el Puesto por Alcance, el costo de casetas — solo Line
+      Haul/Media Milla — y los viajes al mes por frecuencia; calcula la
+      Tarifa Piso 20% y la Tarifa Objetivo 30% con la política fija de
+      margen de la empresa).
+    - **Service Partner**: es tarifa de red ya negociada con el cliente,
+      no un costo de ruta (ver Hoja 9 del tarifario original: Tarifa Base
+      + Diferenciador Foráneo = Total). En vez de calcular, se **busca**
+      la tarifa vigente de ese Cliente; si no hay una para ese punto, hay
+      que negociarla con el cliente en vez de inventar un costo.
+    - **XPT** (solo Mercado Libre): usa la misma tabla estandarizada de
+      rutas dedicadas de MELI (Estación → Nivel → `MELI Tarifas`) que ya
+      existía — se **busca**, no se calcula desde costo.
+
+    Los resultados calculados (no las búsquedas) se guardan en la hoja
+    **Solicitudes**.
   - **Tarifa existente** (buscar en el tarifario): solo elige Cliente (y,
     para Mercado Libre, opcionalmente Estación + Tipo de Unidad + km) y
     ve directo lo que ya está registrado en `Tarifas Vigentes` / `MELI
@@ -70,7 +85,7 @@ src/
   Code.gs               Menú personalizado, onEdit de la hoja Cotizador
   SetupSheets.gs        Crea/formatea todas las hojas del spreadsheet
   Cotizar.gs            COTIZAR(): costo/tarifa por Tipo de Unidad + Puesto (vista interna)
-  Solicitudes.gs        SOLICITAR_TARIFA(): costo/tarifa por Ruta/Punto A-B/Frecuencia (Comercial)
+  Solicitudes.gs        SOLICITAR_TARIFA(): costo/tarifa por Alcance/Modalidad/Punto A-B/Frecuencia (Comercial)
   TarifasVigentes.gs    Datos reales de tarifas de clientes + MELI (gitignored, no se sube a GitHub)
   WebApp.gs             Sirve los dos dashboards y expone las funciones de calculo
   Dashboard.html         Dashboard interno (costos)
@@ -94,7 +109,7 @@ Catálogos (los mantiene Vanessa):
   - **Comisiones** = 5% del Complemento.
   - **Sueldo Mensual Total** = (Sueldo + IMSS + Comisiones) × 4.33 si es Semanal, o × 2 si es Quincenal.
 - **Puntos** — catálogo de ciudades usado como sugerencias para Punto A /
-  Punto B y como Destino en `Ruta-Zona-Puesto`. Viene precargado con
+  Punto B. Viene precargado con
   cobertura nacional (las 32 capitales estatales + las plazas
   logísticas/industriales más relevantes de cada estado, ~150 ciudades en
   total). En el dashboard, Punto A / Punto B son **texto libre** (con
@@ -122,12 +137,10 @@ Catálogos (los mantiene Vanessa):
   automáticamente a `Casetas`, así que la próxima vez que pidan esa misma
   ruta ya no es un estimado. Vanessa puede después ir ajustando esos
   valores aprendidos con el costo real de CAPUFE.
-- **Ruta-Zona-Puesto** — el Puesto Principal (y el Auxiliar) que aplica.
-  Para **Local** y **Foráneo** (operación propia de BDB, sin Punto A/B)
-  basta con el Tipo de Ruta, con Destino en blanco. Para **Line Haul** y
-  **Media Milla** (rutas de Punto A a Punto B) se resuelve por Tipo de
-  Ruta + Destino (Punto B), porque el puesto puede variar según el
-  corredor específico.
+- **Alcance-Puesto** — el Puesto Principal (y el Auxiliar) que aplica para
+  cada **Alcance** (Local/Foráneo). Es independiente de la Modalidad:
+  cualquier Modalidad (Dedicada, Line Haul, Media Milla, etc.) puede ser
+  Local o Foránea, y el chofer se asigna solo por Alcance.
 - **Config** — precios de Diesel/Gasolina ($/L), la parte Fiscal por
   periodo (Semanal/Quincenal), la política de margen del dashboard de
   Comercial (**Margen Piso 20%** / **Margen Objetivo 30%**), y el
@@ -171,10 +184,11 @@ Palet), además se calcula cada una entre la Cantidad capturada:
 
 ### Cómo resuelve solo el dashboard de Comercial
 
-- **¿Se capturan Punto A / Punto B?** ← lo decide el **Tipo de Ruta**: para `Local` y `Foráneo` ninguno de los dos se pide (son operación propia de BDB); para `Line Haul` y `Media Milla` (rutas de Punto A a Punto B) sí se piden ambos, y sí llevan caseta.
-- **Puesto Principal / Auxiliar** ← Tipo de Ruta + Punto B (destino) para Line Haul/Media Milla, o Tipo de Ruta solo (Destino en blanco) para Local/Foráneo, buscado en `Ruta-Zona-Puesto`. Si Comercial escribe un Punto B que todavía no tiene un puesto específico asignado (por ejemplo, una ciudad que Vanessa no había anticipado), el sistema usa el **puesto genérico** de ese Tipo de Ruta (la fila con Destino en blanco) en vez de bloquear la cotización; Vanessa puede después agregar una fila específica para ese destino si el puesto realmente debe variar ahí. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
-- **Costo de Casetas** (solo Line Haul/Media Milla) ← se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si esa ruta exacta no está capturada, se estima con km × Costo Casetas Estimado de `Config` (se marca como "estimado" en el resultado y en la hoja Solicitudes, para que Vanessa sepa qué rutas conviene capturar con dato real).
+- **¿Se capturan Punto A / Punto B?** ← lo decide la **Modalidad**: `Line Haul`, `Media Milla`, `Service Partner` y `XPT` sí (rutas de punto a punto); `Dedicada` y `Spot` no.
+- **Puesto Principal / Auxiliar** ← solo por **Alcance** (Local/Foráneo), buscado en `Alcance-Puesto`, sin importar la Modalidad. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar de ese Alcance.
+- **Costo de Casetas** (solo Modalidad Line Haul/Media Milla) ← se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si esa ruta exacta no está capturada, se estima con km × Costo Casetas Estimado de `Config` (se marca como "estimado" en el resultado y en la hoja Solicitudes, para que Vanessa sepa qué rutas conviene capturar con dato real).
 - **Viajes al Mes** ← Frecuencia (ej. `7x7`, `5x7`): se toma el primer número (veces por semana) × 4.33.
+- **Service Partner / XPT** ← no pasan por nada de lo anterior: son búsqueda de tarifa (ver arriba), no cálculo de costo.
 
 ## Puesta en marcha (Google Sheets)
 
@@ -188,7 +202,7 @@ Palet), además se calcula cada una entre la Cantidad capturada:
    listadas arriba, con datos de ejemplo en los catálogos.
 6. Reemplaza los datos de ejemplo con tus costos, puntos, casetas y
    mapeos reales en **Costos Unidad**, **Nomina**, **Puntos**, **Casetas**
-   y **Ruta-Zona-Puesto**.
+   y **Alcance-Puesto**.
 
 ## Prueba rápida (definición de "quedó" de la semana 3)
 

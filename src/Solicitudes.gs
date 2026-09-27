@@ -58,17 +58,17 @@ function obtenerCostoCasetasPorKm_() {
 }
 
 /**
- * Resuelve el costo de casetas de una ruta. Si Tipo de Ruta es "Local"
- * (dentro de la misma ciudad) no lleva caseta. Si es Foraneo, Line Haul o
- * Media Milla (de Punto A a Punto B) si lleva: se busca el costo exacto
- * en la hoja Casetas, y si esa ruta especifica todavia no esta
- * capturada, se estima con kilometros x Costo Casetas Estimado ($/km) de
- * Config, para poder cotizar cualquier ruta del pais sin esperar a que el
+ * Resuelve el costo de casetas de una ruta segun la Modalidad (no el
+ * Alcance): "Line Haul" y "Media Milla" son de Punto A a Punto B y si
+ * llevan caseta; el resto no. Cuando aplica, se busca el costo exacto en
+ * la hoja Casetas, y si esa ruta especifica todavia no esta capturada,
+ * se estima con kilometros x Costo Casetas Estimado ($/km) de Config,
+ * para poder cotizar cualquier ruta del pais sin esperar a que el
  * catalogo este completo.
  */
-function resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km) {
-  if (TIPOS_RUTA_CON_CASETA.indexOf(tipoRuta) === -1) {
-    return { costo: 0, estimado: false, fuente: 'No aplica (Tipo de Ruta Local)' };
+function resolverCostoCasetas_(modalidad, puntoA, puntoB, km) {
+  if (MODALIDADES_CON_CASETA.indexOf(modalidad) === -1) {
+    return { costo: 0, estimado: false, fuente: 'No aplica para Modalidad "' + modalidad + '"' };
   }
 
   var filaExacta = (puntoA && puntoB) ? buscarCasetasExacto_(puntoA, puntoB) : null;
@@ -86,32 +86,21 @@ function resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km) {
 }
 
 /**
- * Busca, para una combinacion de Tipo de Ruta + Destino (Punto B), que
- * Puesto principal y cual Auxiliar aplican. Regresa null si esa
- * combinacion no esta definida en la hoja Ruta-Zona-Puesto.
+ * Busca el Puesto Principal / Auxiliar para un Alcance (Local/Foraneo).
+ * Es independiente de la Modalidad: cualquier Modalidad usa el mismo
+ * Puesto segun su Alcance. Regresa null si ese Alcance no esta definido
+ * en la hoja Alcance-Puesto.
  */
-/**
- * Busca el Puesto para un Tipo de Ruta + Destino (Punto B). Primero
- * busca una fila especifica para ese destino exacto; si Punto B no tiene
- * una fila especifica (por ejemplo, Comercial escribio una ciudad que
- * todavia no tiene un puesto asignado a mano), usa la fila generica de
- * ese Tipo de Ruta (Destino en blanco) como respaldo, para no bloquear
- * la cotizacion solo porque el destino es nuevo. Regresa null unicamente
- * si ni siquiera existe una fila generica para ese Tipo de Ruta.
- */
-function buscarRutaZonaPuesto_(tipoRuta, puntoB) {
-  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_RUTA_ZONA_PUESTO);
+function buscarPuestoPorAlcance_(alcance) {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_ALCANCE_PUESTO);
   if (!hoja) {
-    throw new Error('No existe la hoja "' + HOJA_RUTA_ZONA_PUESTO + '". Ejecuta Cotizador BDB > Inicializar hojas.');
+    throw new Error('No existe la hoja "' + HOJA_ALCANCE_PUESTO + '". Ejecuta Cotizador BDB > Inicializar hojas.');
   }
-  var datos = hoja.getRange(2, 1, FILAS_RUTA_ZONA, 4).getValues();
-  var filaGenerica = null;
+  var datos = hoja.getRange(2, 1, FILAS_ALCANCE, 3).getValues();
   for (var i = 0; i < datos.length; i++) {
-    if (datos[i][0] !== tipoRuta) continue;
-    if (puntoB && datos[i][1] === puntoB) return datos[i];
-    if (datos[i][1] === '') filaGenerica = datos[i];
+    if (datos[i][0] === alcance) return datos[i];
   }
-  return filaGenerica;
+  return null;
 }
 
 /**
@@ -140,17 +129,21 @@ function obtenerMargenesPolitica_() {
 
 /**
  * Calcula la tarifa de una solicitud de Comercial a partir de las
- * caracteristicas de la ruta, no de costos: Tipo de Ruta + Destino
- * (Punto B) resuelven el Puesto principal (y el Auxiliar, si la ruta lo
- * necesita) en la hoja Ruta-Zona-Puesto; la Frecuencia resuelve los
- * Viajes al Mes (veces por semana x 4.33).
+ * caracteristicas de la ruta, no de costos. Se usa para las Modalidades
+ * que si tienen motor de costos (ver MODALIDADES_MOTOR_COSTOS: Dedicada,
+ * Spot, Line Haul, Media Milla) — Service Partner y XPT no pasan por
+ * aqui, se resuelven por busqueda (ver BUSCAR_TARIFA_SERVICE_PARTNER y
+ * el manejo de XPT en WebApp.gs).
  *
- * El Costo de Casetas depende del Tipo de Ruta: "Local" no lleva caseta;
- * "Foraneo", "Line Haul" y "Media Milla" (rutas de Punto A a Punto B) si
- * llevan, y se resuelve con Punto A + Punto B en la hoja Casetas — o, si
- * esa ruta especifica todavia no esta capturada, con un estimado por km
- * (ver resolverCostoCasetas_()) para poder cotizar cualquier ruta del
- * pais sin depender de tener el catalogo completo.
+ * Alcance (Local/Foraneo) resuelve el Puesto principal (y el Auxiliar,
+ * si la ruta lo necesita) en la hoja Alcance-Puesto, sin importar la
+ * Modalidad. La Frecuencia resuelve los Viajes al Mes (veces por semana
+ * x 4.33).
+ *
+ * El Costo de Casetas depende de la Modalidad (ver resolverCostoCasetas_):
+ * solo Line Haul y Media Milla llevan, resuelto con Punto A + Punto B en
+ * la hoja Casetas o, si esa ruta especifica todavia no esta capturada,
+ * con un estimado por km.
  *
  * El margen NO lo captura Comercial: se usa la politica fija de la
  * empresa (Margen Piso / Margen Objetivo en Config), y se regresan ambas
@@ -162,7 +155,7 @@ function obtenerMargenesPolitica_() {
  *
  * @return {Object} Desglose completo de la solicitud.
  */
-function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, requiereAuxiliar) {
+function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, requiereAuxiliar) {
   var filaUnidad = buscarUnidadPorTipo_(tipoUnidad);
   if (!filaUnidad) {
     throw new Error('Tipo de unidad "' + tipoUnidad + '" no esta en la hoja "' + HOJA_COSTOS_UNIDAD + '".');
@@ -171,20 +164,19 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
     throw new Error('Completa Rendimiento y Tipo de Combustible de "' + tipoUnidad + '" en ' + HOJA_COSTOS_UNIDAD + '.');
   }
 
-  var mapeo = buscarRutaZonaPuesto_(tipoRuta, puntoB);
+  var mapeo = buscarPuestoPorAlcance_(alcance);
   if (!mapeo) {
     throw new Error(
-      'No hay ni un Puesto especifico ni uno generico para Tipo de Ruta "' + tipoRuta +
-      '" en la hoja "' + HOJA_RUTA_ZONA_PUESTO + '". Agrega al menos una fila con Destino en blanco para ese Tipo de Ruta.'
+      'No hay un Puesto definido para Alcance "' + alcance + '" en la hoja "' + HOJA_ALCANCE_PUESTO + '".'
     );
   }
 
-  var puestoPrincipal = mapeo[2];
-  var puestoAuxiliar = mapeo[3];
+  var puestoPrincipal = mapeo[1];
+  var puestoAuxiliar = mapeo[2];
 
   var filaPrincipal = buscarPuestoEnNomina_(puestoPrincipal);
   if (!filaPrincipal) {
-    throw new Error('Puesto "' + puestoPrincipal + '" (mapeado para ' + tipoRuta + ' + ' + puntoB + ') no esta en la hoja "' + HOJA_NOMINA + '".');
+    throw new Error('Puesto "' + puestoPrincipal + '" (mapeado para Alcance ' + alcance + ') no esta en la hoja "' + HOJA_NOMINA + '".');
   }
   if (filaPrincipal[7] === '') {
     throw new Error('Completa Sueldo y Periodicidad de "' + puestoPrincipal + '" en ' + HOJA_NOMINA + '.');
@@ -195,10 +187,7 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
 
   if (requiereAuxiliar) {
     if (!puestoAuxiliar) {
-      throw new Error(
-        'No hay Puesto Auxiliar definido para Tipo de Ruta "' + tipoRuta + '" + Destino "' + puntoB +
-        '" en la hoja "' + HOJA_RUTA_ZONA_PUESTO + '".'
-      );
+      throw new Error('No hay Puesto Auxiliar definido para Alcance "' + alcance + '" en la hoja "' + HOJA_ALCANCE_PUESTO + '".');
     }
     var filaAuxiliar = buscarPuestoEnNomina_(puestoAuxiliar);
     if (!filaAuxiliar) {
@@ -216,7 +205,7 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
   var rentaMensual = Number(filaUnidad[1]) || 0;
   var mantenimientoMensual = Number(filaUnidad[3]) || 0;
   var gasolinaKm = Number(filaUnidad[7]) || 0;
-  var infoCasetas = resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km);
+  var infoCasetas = resolverCostoCasetas_(modalidad, puntoA, puntoB, km);
   var costoCasetas = infoCasetas.costo;
 
   var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, costoCasetas);
@@ -257,4 +246,20 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
     tarifaPorUnidadPiso: tarifaPorUnidadPiso,
     tarifaPorUnidadObjetivo: tarifaPorUnidadObjetivo
   };
+}
+
+/**
+ * Service Partner es tarifa de red ya negociada con el cliente (no un
+ * costo de ruta que se calcule desde cero, ver Hoja 9 del tarifario
+ * original: Tarifa Base + Diferenciador Foraneo = Total). En vez de
+ * correr el motor de costos, se buscan las tarifas vigentes de ese
+ * Cliente para que Comercial las revise; si no hay ninguna para el
+ * Punto B que le estan pidiendo, hay que negociar una nueva con el
+ * cliente en vez de inventar un costo.
+ */
+function BUSCAR_TARIFA_SERVICE_PARTNER(cliente) {
+  if (!cliente || cliente === 'Nuevo Cliente') {
+    return { referenciasVigentes: [] };
+  }
+  return { referenciasVigentes: buscarTarifasVigentesPorCliente_(cliente) };
 }

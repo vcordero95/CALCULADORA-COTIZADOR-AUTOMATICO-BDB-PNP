@@ -31,11 +31,11 @@ function obtenerCatalogos() {
 
 /**
  * Catalogos para el dashboard de Comercial: Puntos (origen/destino) y
- * Tipo de Unidad salen de sus catalogos; Tipo de Ruta, Frecuencia y Tipo
- * de Cobro son categorias fijas del negocio. Cliente sale de Tarifas
- * Vigentes, mas la opcion fija "Nuevo Cliente" (para clientes que aun no
- * tienen tarifa registrada). Estaciones MELI solo aplica cuando Cliente =
- * Mercado Libre y Tipo de Cobro = Por Ruta (rutas dedicadas).
+ * Tipo de Unidad salen de sus catalogos; Alcance, Modalidad, Frecuencia y
+ * Tipo de Cobro son categorias fijas del negocio. Cliente sale de
+ * Tarifas Vigentes, mas la opcion fija "Nuevo Cliente" (para clientes que
+ * aun no tienen tarifa registrada). Estaciones MELI solo aplica cuando
+ * Cliente = Mercado Libre y Modalidad = XPT.
  */
 function obtenerCatalogosComercial() {
   var soloLlenos = function (valor) { return valor !== ''; };
@@ -56,8 +56,9 @@ function obtenerCatalogosComercial() {
   return {
     puntos: puntos,
     unidades: unidades,
-    tiposRuta: TIPOS_RUTA,
-    tiposRutaConCaseta: TIPOS_RUTA_CON_CASETA,
+    alcances: ALCANCES,
+    modalidades: MODALIDADES,
+    modalidadesConPuntoAB: MODALIDADES_CON_PUNTO_A_B,
     frecuencias: FRECUENCIAS,
     tiposCobro: TIPOS_COBRO,
     clientes: clientes,
@@ -125,29 +126,54 @@ function siguienteFilaLibreCotizador_(sheet) {
 
 /**
  * Calcula una solicitud de tarifa de cliente desde el dashboard de
- * Comercial, reusando SOLICITAR_TARIFA(). Comercial no captura margen: se
- * usa la politica fija de la empresa (Margen Piso / Margen Objetivo en
- * Config) y se regresan ambas tarifas. Ademas agrega, como referencia (no
- * como parte del calculo de costo), las tarifas vigentes del Cliente
- * elegido y, si aplica (Mercado Libre + Por Ruta + Estacion capturada),
- * la tarifa vigente de ruta dedicada de MELI.
+ * Comercial. La Modalidad decide el camino:
+ *  - "Service Partner": tarifa de red ya negociada, se BUSCA en Tarifas
+ *    Vigentes por Cliente (BUSCAR_TARIFA_SERVICE_PARTNER), no se calcula
+ *    costo.
+ *  - "XPT" (solo Mercado Libre): se BUSCA la tarifa exacta de ruta
+ *    dedicada de MELI por Estacion + Tipo de Unidad + km, igual que ya
+ *    se hace para las demas modalidades cuando Cliente es Mercado Libre.
+ *  - Cualquier otra Modalidad (Dedicada, Spot, Line Haul, Media Milla):
+ *    pasa por el motor de costos, reusando SOLICITAR_TARIFA(). Comercial
+ *    no captura margen: se usa la politica fija de la empresa (Margen
+ *    Piso / Margen Objetivo en Config) y se regresan ambas tarifas.
+ *
+ * En los tres casos se agregan, como referencia, las tarifas vigentes
+ * del Cliente elegido.
  */
 function calcularSolicitudWeb(datos) {
+  if (datos.modalidad === 'Service Partner') {
+    var busquedaSp = BUSCAR_TARIFA_SERVICE_PARTNER(datos.cliente);
+    return {
+      esBusquedaTarifa: true,
+      referenciasVigentes: busquedaSp.referenciasVigentes,
+      tarifaMeli: null
+    };
+  }
+
+  if (datos.modalidad === 'XPT') {
+    if (datos.cliente !== 'Mercado Libre') {
+      throw new Error('XPT solo aplica para Mercado Libre.');
+    }
+    if (!datos.estacionMeli) {
+      throw new Error('Selecciona la Estacion MELI para buscar la tarifa XPT.');
+    }
+    return {
+      esBusquedaTarifa: true,
+      referenciasVigentes: [],
+      tarifaMeli: buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km)
+    };
+  }
+
   var resultado = SOLICITAR_TARIFA(
-    datos.tipoRuta, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
+    datos.alcance, datos.modalidad, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
     datos.tipoCobro, datos.cantidad, !!datos.requiereAuxiliar
   );
 
-  resultado.referenciasVigentes = [];
+  resultado.esBusquedaTarifa = false;
+  resultado.referenciasVigentes = (datos.cliente && datos.cliente !== 'Nuevo Cliente')
+    ? buscarTarifasVigentesPorCliente_(datos.cliente) : [];
   resultado.tarifaMeli = null;
-
-  if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
-    resultado.referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
-
-    if (datos.cliente === 'Mercado Libre' && datos.tipoCobro === 'Por Ruta' && datos.estacionMeli) {
-      resultado.tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
-    }
-  }
 
   return resultado;
 }
@@ -176,7 +202,9 @@ function buscarTarifaExistenteWeb(datos) {
 
 /**
  * Guarda la solicitud calculada (dashboard de Comercial) como un renglon
- * nuevo en la hoja Solicitudes, con los valores ya resueltos.
+ * nuevo en la hoja Solicitudes, con los valores ya resueltos. Para
+ * Service Partner / XPT (busqueda de tarifa, sin motor de costos) los
+ * campos de costo quedan en blanco: no hay nada que inventar ahi.
  */
 function guardarSolicitudWeb(datos, resultado) {
   var sheet = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
@@ -190,16 +218,17 @@ function guardarSolicitudWeb(datos, resultado) {
     : (datos.cliente || '');
   var tarifaVigenteRegistrada = resultado.tarifaMeli ? resultado.tarifaMeli.tarifa : '';
 
-  sheet.getRange(fila, 1, 1, 33).setValues([[
-    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.tipoRuta, datos.puntoA || '', datos.puntoB, datos.tipoUnidad,
-    datos.frecuencia, datos.volumen || '', Number(datos.km) || 0, datos.tipoCobro, Number(datos.cantidad) || '',
+  sheet.getRange(fila, 1, 1, 34).setValues([[
+    new Date(), clienteRegistrado, datos.rutaCliente || '', datos.alcance || '', datos.modalidad,
+    datos.puntoA || '', datos.puntoB || '', datos.tipoUnidad,
+    datos.frecuencia || '', datos.volumen || '', Number(datos.km) || '', datos.tipoCobro || '', Number(datos.cantidad) || '',
     datos.requiereAuxiliar ? 'Si' : 'No', datos.estacionMeli || '',
-    resultado.puestoPrincipal, resultado.puestoAuxiliar, resultado.costoCasetas,
-    resultado.casetasEstimadas ? 'Si' : 'No', resultado.viajesMes,
-    resultado.sueldoMensual, resultado.rentaMensual, resultado.mantenimientoMensual, resultado.costoGasolinaKm,
-    resultado.costoVariable, resultado.costoFijoProrrateado, resultado.costoTotal,
-    resultado.margenPiso, resultado.margenObjetivo, resultado.tarifaPiso, resultado.tarifaObjetivo,
-    resultado.tarifaPorUnidadPiso, resultado.tarifaPorUnidadObjetivo, tarifaVigenteRegistrada
+    resultado.puestoPrincipal || '', resultado.puestoAuxiliar || '', resultado.costoCasetas || '',
+    resultado.casetasEstimadas ? 'Si' : 'No', resultado.viajesMes || '',
+    resultado.sueldoMensual || '', resultado.rentaMensual || '', resultado.mantenimientoMensual || '', resultado.costoGasolinaKm || '',
+    resultado.costoVariable || '', resultado.costoFijoProrrateado || '', resultado.costoTotal || '',
+    resultado.margenPiso || '', resultado.margenObjetivo || '', resultado.tarifaPiso || '', resultado.tarifaObjetivo || '',
+    resultado.tarifaPorUnidadPiso || '', resultado.tarifaPorUnidadObjetivo || '', tarifaVigenteRegistrada
   ]]);
 
   if (resultado.casetasEstimadas && datos.puntoA && datos.puntoB) {
