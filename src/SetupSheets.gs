@@ -241,7 +241,7 @@ function setupNomina_() {
 var _PUNTOS_NACIONAL = [
   'CDMX', 'Aguascalientes', 'Mexicali', 'Tijuana', 'Ensenada', 'Tecate', 'Playas de Rosarito',
   'La Paz', 'Los Cabos', 'San José del Cabo', 'Ciudad Constitución',
-  'Campeche', 'Ciudad del Carmen',
+  'Campeche', 'Ciudad del Carmen', 'Champotón',
   'Tuxtla Gutiérrez', 'Tapachula', 'San Cristóbal de las Casas', 'Comitán',
   'Chihuahua', 'Ciudad Juárez', 'Delicias', 'Cuauhtémoc', 'Parral', 'Nuevo Casas Grandes',
   'Saltillo', 'Torreón', 'Monclova', 'Piedras Negras', 'Acuña', 'Ramos Arizpe',
@@ -321,10 +321,33 @@ function setupCasetas_(hojaPuntos) {
   sheet.getRange(2, 1, FILAS_CASETAS, 1).setDataValidation(puntoRule);
   sheet.getRange(2, 2, FILAS_CASETAS, 1).setDataValidation(puntoRule);
 
+  // Camion 2 ejes (columna C2). Filas sin "(suma...)" son un tramo unico
+  // tomado tal cual del PDF oficial de Tarifas Vigentes 2026 de CAPUFE
+  // (Red FONADIN); las marcadas "(suma...)" son la suma de tramos
+  // oficiales consecutivos del mismo corredor conocido, y conviene
+  // confirmar que la ruta real siga exactamente esos tramos. CDMX-Toluca
+  // no esta en la red CAPUFE (es un tramo concesionado aparte), se dejo
+  // el dato de prensa 2026 como estaba.
+  var fuenteOficial = 'Camión 2 ejes (C2), CAPUFE Tarifas Vigentes 2026 (Red FONADIN), tramo "%TRAMO%".';
   var ejemplo = [
-    ['CDMX', 'Querétaro', 490, 'Camión 2 ejes, prensa CAPUFE abr-2026 (nmas.com.mx) — validar en PDF oficial CAPUFE'],
-    ['CDMX', 'Puebla', 650, 'Camión 2-3 ejes, prensa CAPUFE abr-2026 (nmas.com.mx) — validar en PDF oficial CAPUFE'],
-    ['CDMX', 'Toluca', 260, 'Camión/autobús 2 ejes, tramo La Marquesa, prensa CAPUFE abr-2026 (milenio.com) — validar en PDF oficial CAPUFE']
+    ['CDMX', 'Querétaro', 497, fuenteOficial.replace('%TRAMO%', 'MEXICO-QUERETARO')],
+    ['CDMX', 'Puebla', 464, fuenteOficial.replace('%TRAMO%', 'MEXICO-PUEBLA')],
+    ['CDMX', 'Toluca', 260, 'Camión/autobús 2 ejes, tramo La Marquesa (no es red CAPUFE), prensa abr-2026 (milenio.com) — validar con el concesionario'],
+    ['CDMX', 'Cuernavaca', 299, fuenteOficial.replace('%TRAMO%', 'MEXICO-CUERNAVACA')],
+    ['Cuernavaca', 'Acapulco', 1134, fuenteOficial.replace('%TRAMO%', 'CUERNAVACA-ACAPULCO')],
+    ['CDMX', 'Acapulco', 1433, 'Camión 2 ejes (suma de tramos oficiales CAPUFE 2026): MEXICO-CUERNAVACA 299 + CUERNAVACA-ACAPULCO 1,134.'],
+    ['Querétaro', 'Irapuato', 447, fuenteOficial.replace('%TRAMO%', 'QUERETARO-IRAPUATO')],
+    ['CDMX', 'Irapuato', 944, 'Camión 2 ejes (suma de tramos oficiales CAPUFE 2026): MEXICO-QUERETARO 497 + QUERETARO-IRAPUATO 447.'],
+    ['Puebla', 'Córdoba', 666, 'Camión 2 ejes (suma de tramos oficiales CAPUFE 2026): PUEBLA-ACATZINGO 187 + ACATZINGO-CD.MENDOZA 386 + CD.MENDOZA-CORDOBA 93.'],
+    ['Córdoba', 'Veracruz', 418, fuenteOficial.replace('%TRAMO%', 'CORDOBA-VERACRUZ')],
+    ['CDMX', 'Veracruz', 1548, 'Camión 2 ejes (suma de tramos oficiales CAPUFE 2026): MEXICO-PUEBLA 464 + PUEBLA-ACATZINGO 187 + ACATZINGO-CD.MENDOZA 386 + CD.MENDOZA-CORDOBA 93 + CORDOBA-VERACRUZ 418.'],
+    ['Tijuana', 'Ensenada', 329, fuenteOficial.replace('%TRAMO%', 'TIJUANA-ENSENADA')],
+    ['Durango', 'Mazatlán', 1702, fuenteOficial.replace('%TRAMO%', 'DURANGO-MAZATLAN')],
+    ['Guadalajara', 'Colima', 634, fuenteOficial.replace('%TRAMO%', 'GUADALAJARA-COLIMA')],
+    ['Torreón', 'Saltillo', 427, fuenteOficial.replace('%TRAMO%', 'TORREON-SALTILLO')],
+    ['Lagos de Moreno', 'San Luis Potosí', 299, fuenteOficial.replace('%TRAMO%', 'LAGOS DE MORENO-SAN LUIS POTOSI')],
+    ['Champotón', 'Campeche', 161, fuenteOficial.replace('%TRAMO%', 'CHAMPOTON-CAMPECHE')],
+    ['Hermosillo', 'Nogales', 934, fuenteOficial.replace('%TRAMO%', 'ESTACION DON-NOGALES (cerca de Hermosillo)')]
   ];
   sheet.getRange(2, 1, ejemplo.length, 4).setValues(ejemplo);
   sheet.getRange(2, 3, FILAS_CASETAS, 1).setNumberFormat('$#,##0.00');

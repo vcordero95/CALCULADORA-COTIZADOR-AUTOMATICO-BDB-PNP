@@ -100,13 +100,19 @@ Catálogos (los mantiene Vanessa):
   total), porque Comercial no sabe de antemano dónde le van a solicitar
   una ruta. Vanessa puede agregar más abajo del catálogo cuando haga falta.
 - **Casetas** — costo de casetas entre Punto A y Punto B (sin importar el
-  orden). Trae 3 rutas de ejemplo con datos reales de prensa sobre las
-  tarifas CAPUFE 2026 (columna Fuente) — **son un punto de partida a
-  validar/actualizar** con el PDF oficial de CAPUFE para el tipo de
-  unidad real de la flota, no un dato exacto por vehículo. Si Comercial
-  cotiza una ruta que todavía no está aquí, el sistema no se bloquea:
-  estima el costo con kilómetros × Costo Casetas Estimado ($/km) de
-  `Config`, para poder cotizar cualquier ruta del país desde el día uno.
+  orden). Trae ~18 corredores precargados con el costo de **camión de 2
+  ejes (C2)** tomado directo del PDF oficial de CAPUFE, "Tarifas Vigentes
+  2026" (Red FONADIN) — la fuente autoritativa, no prensa (columna
+  Fuente cita el tramo oficial exacto). Los que dicen "suma de tramos"
+  son corredores conocidos armados encadenando tramos oficiales
+  consecutivos (ej. CDMX-Acapulco = México-Cuernavaca + Cuernavaca-
+  Acapulco); vale la pena confirmar que la ruta real siga ese mismo
+  camino. CDMX-Toluca no es red CAPUFE (va por un tramo concesionado
+  aparte) y se dejó el dato de prensa. Esto sigue sin ser exhaustivo — si
+  Comercial cotiza una ruta que todavía no está aquí, el sistema no se
+  bloquea: estima el costo con kilómetros × Costo Casetas Estimado
+  ($/km) de `Config`, para poder cotizar cualquier ruta del país desde
+  el día uno.
   **El catálogo se auto-completa solo**: cada vez que se guarda una
   solicitud cuya caseta fue estimada, esa ruta (Punto A, Punto B, costo
   estimado, con nota de que viene de una solicitud guardada) se agrega
