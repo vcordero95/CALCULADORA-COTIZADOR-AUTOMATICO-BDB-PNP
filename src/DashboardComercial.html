@@ -144,13 +144,14 @@
 
         <div class="fila-doble" id="campo-punto-a-b">
           <div>
-            <label for="puntoA">Punto A <span class="ayuda">(origen)</span></label>
-            <select id="puntoA"></select>
+            <label for="puntoA">Punto A <span class="ayuda">(origen; escribe cualquier ciudad)</span></label>
+            <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Guadalajara">
           </div>
           <div>
-            <label for="puntoB">Punto B <span class="ayuda">(destino)</span></label>
-            <select id="puntoB"></select>
+            <label for="puntoB">Punto B <span class="ayuda">(destino; escribe cualquier ciudad)</span></label>
+            <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey">
           </div>
+          <datalist id="lista-puntos"></datalist>
         </div>
 
         <div class="fila-doble">
@@ -291,7 +292,7 @@
       return '$' + Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function poblarSelect(select, opciones) {
+    function poblarOpciones(select, opciones) {
       select.innerHTML = '';
       opciones.forEach(function (opcion) {
         var el = document.createElement('option');
@@ -346,19 +347,18 @@
     function cargarCatalogos() {
       google.script.run
         .withSuccessHandler(function (catalogos) {
-          poblarSelect(document.getElementById('tipoRuta'), catalogos.tiposRuta);
-          poblarSelect(document.getElementById('puntoA'), catalogos.puntos);
-          poblarSelect(document.getElementById('puntoB'), catalogos.puntos);
-          poblarSelect(document.getElementById('tipoUnidad'), catalogos.unidades);
-          poblarSelect(document.getElementById('frecuencia'), catalogos.frecuencias);
-          poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
-          poblarSelect(document.getElementById('cliente'), catalogos.clientes);
-          poblarSelect(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
+          poblarOpciones(document.getElementById('tipoRuta'), catalogos.tiposRuta);
+          poblarOpciones(document.getElementById('lista-puntos'), catalogos.puntos);
+          poblarOpciones(document.getElementById('tipoUnidad'), catalogos.unidades);
+          poblarOpciones(document.getElementById('frecuencia'), catalogos.frecuencias);
+          poblarOpciones(document.getElementById('tipoCobro'), catalogos.tiposCobro);
+          poblarOpciones(document.getElementById('cliente'), catalogos.clientes);
+          poblarOpciones(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
 
           var clientesExistentes = catalogos.clientes.filter(function (c) { return c !== 'Nuevo Cliente'; });
-          poblarSelect(document.getElementById('clienteExistente'), clientesExistentes);
-          poblarSelect(document.getElementById('estacionMeliExistente'), catalogos.estacionesMeli);
-          poblarSelect(document.getElementById('tipoUnidadExistente'), catalogos.unidades);
+          poblarOpciones(document.getElementById('clienteExistente'), clientesExistentes);
+          poblarOpciones(document.getElementById('estacionMeliExistente'), catalogos.estacionesMeli);
+          poblarOpciones(document.getElementById('tipoUnidadExistente'), catalogos.unidades);
 
           tiposRutaConCaseta = catalogos.tiposRutaConCaseta;
           actualizarVisibilidadCampos();
@@ -473,8 +473,8 @@
         nuevoClienteNombre: document.getElementById('nuevoClienteNombre').value,
         rutaCliente: document.getElementById('rutaCliente').value,
         tipoRuta: document.getElementById('tipoRuta').value,
-        puntoA: document.getElementById('puntoA').value,
-        puntoB: document.getElementById('puntoB').value,
+        puntoA: document.getElementById('puntoA').value.trim(),
+        puntoB: document.getElementById('puntoB').value.trim(),
         tipoUnidad: document.getElementById('tipoUnidad').value,
         frecuencia: document.getElementById('frecuencia').value,
         volumen: Number(document.getElementById('volumen').value) || '',

@@ -90,16 +90,28 @@ function resolverCostoCasetas_(tipoRuta, puntoA, puntoB, km) {
  * Puesto principal y cual Auxiliar aplican. Regresa null si esa
  * combinacion no esta definida en la hoja Ruta-Zona-Puesto.
  */
+/**
+ * Busca el Puesto para un Tipo de Ruta + Destino (Punto B). Primero
+ * busca una fila especifica para ese destino exacto; si Punto B no tiene
+ * una fila especifica (por ejemplo, Comercial escribio una ciudad que
+ * todavia no tiene un puesto asignado a mano), usa la fila generica de
+ * ese Tipo de Ruta (Destino en blanco) como respaldo, para no bloquear
+ * la cotizacion solo porque el destino es nuevo. Regresa null unicamente
+ * si ni siquiera existe una fila generica para ese Tipo de Ruta.
+ */
 function buscarRutaZonaPuesto_(tipoRuta, puntoB) {
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_RUTA_ZONA_PUESTO);
   if (!hoja) {
     throw new Error('No existe la hoja "' + HOJA_RUTA_ZONA_PUESTO + '". Ejecuta Cotizador BDB > Inicializar hojas.');
   }
   var datos = hoja.getRange(2, 1, FILAS_RUTA_ZONA, 4).getValues();
+  var filaGenerica = null;
   for (var i = 0; i < datos.length; i++) {
-    if (datos[i][0] === tipoRuta && datos[i][1] === puntoB) return datos[i];
+    if (datos[i][0] !== tipoRuta) continue;
+    if (puntoB && datos[i][1] === puntoB) return datos[i];
+    if (datos[i][1] === '') filaGenerica = datos[i];
   }
-  return null;
+  return filaGenerica;
 }
 
 /**
@@ -162,8 +174,8 @@ function SOLICITAR_TARIFA(tipoRuta, puntoA, puntoB, tipoUnidad, frecuencia, km, 
   var mapeo = buscarRutaZonaPuesto_(tipoRuta, puntoB);
   if (!mapeo) {
     throw new Error(
-      'No hay un Puesto definido para Tipo de Ruta "' + tipoRuta + '" + Destino "' + puntoB +
-      '" en la hoja "' + HOJA_RUTA_ZONA_PUESTO + '".'
+      'No hay ni un Puesto especifico ni uno generico para Tipo de Ruta "' + tipoRuta +
+      '" en la hoja "' + HOJA_RUTA_ZONA_PUESTO + '". Agrega al menos una fila con Destino en blanco para ese Tipo de Ruta.'
     );
   }
 

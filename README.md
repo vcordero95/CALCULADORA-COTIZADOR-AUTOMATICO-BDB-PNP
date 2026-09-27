@@ -93,12 +93,15 @@ Catálogos (los mantiene Vanessa):
   - **IMSS** = 30% de Fiscal.
   - **Comisiones** = 5% del Complemento.
   - **Sueldo Mensual Total** = (Sueldo + IMSS + Comisiones) × 4.33 si es Semanal, o × 2 si es Quincenal.
-- **Puntos** — catálogo de ciudades usadas como Punto A (origen), Punto B
-  (destino) y Destino en `Ruta-Zona-Puesto`. Viene precargado con
+- **Puntos** — catálogo de ciudades usado como sugerencias para Punto A /
+  Punto B y como Destino en `Ruta-Zona-Puesto`. Viene precargado con
   cobertura nacional (las 32 capitales estatales + las plazas
   logísticas/industriales más relevantes de cada estado, ~150 ciudades en
-  total), porque Comercial no sabe de antemano dónde le van a solicitar
-  una ruta. Vanessa puede agregar más abajo del catálogo cuando haga falta.
+  total). En el dashboard, Punto A / Punto B son **texto libre** (con
+  estas ciudades como autocompletado): Comercial puede escribir cualquier
+  ciudad del país, esté o no en este catálogo — no se bloquea si el
+  destino real no aparece en la lista. Vanessa puede agregar más ciudades
+  aquí cuando haga falta.
 - **Casetas** — costo de casetas entre Punto A y Punto B (sin importar el
   orden). Trae ~18 corredores precargados con el costo de **camión de 2
   ejes (C2)** tomado directo del PDF oficial de CAPUFE, "Tarifas Vigentes
@@ -169,7 +172,7 @@ Palet), además se calcula cada una entre la Cantidad capturada:
 ### Cómo resuelve solo el dashboard de Comercial
 
 - **¿Se capturan Punto A / Punto B?** ← lo decide el **Tipo de Ruta**: para `Local` y `Foráneo` ninguno de los dos se pide (son operación propia de BDB); para `Line Haul` y `Media Milla` (rutas de Punto A a Punto B) sí se piden ambos, y sí llevan caseta.
-- **Puesto Principal / Auxiliar** ← Tipo de Ruta + Punto B (destino) para Line Haul/Media Milla, o Tipo de Ruta solo (Destino en blanco) para Local/Foráneo, buscado en `Ruta-Zona-Puesto`. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
+- **Puesto Principal / Auxiliar** ← Tipo de Ruta + Punto B (destino) para Line Haul/Media Milla, o Tipo de Ruta solo (Destino en blanco) para Local/Foráneo, buscado en `Ruta-Zona-Puesto`. Si Comercial escribe un Punto B que todavía no tiene un puesto específico asignado (por ejemplo, una ciudad que Vanessa no había anticipado), el sistema usa el **puesto genérico** de ese Tipo de Ruta (la fila con Destino en blanco) en vez de bloquear la cotización; Vanessa puede después agregar una fila específica para ese destino si el puesto realmente debe variar ahí. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar mapeado para esa combinación.
 - **Costo de Casetas** (solo Line Haul/Media Milla) ← se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si esa ruta exacta no está capturada, se estima con km × Costo Casetas Estimado de `Config` (se marca como "estimado" en el resultado y en la hoja Solicitudes, para que Vanessa sepa qué rutas conviene capturar con dato real).
 - **Viajes al Mes** ← Frecuencia (ej. `7x7`, `5x7`): se toma el primer número (veces por semana) × 4.33.
 

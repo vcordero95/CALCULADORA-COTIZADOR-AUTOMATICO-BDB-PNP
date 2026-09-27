@@ -391,7 +391,9 @@ function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
     ['Local', '', 'Chofer Local', 'Auxiliar Local'],
     ['Foráneo', '', 'Chofer Foraneo', 'Auxiliar Foraneo'],
     ['Line Haul', 'Querétaro', 'Chofer Line Haul', ''],
-    ['Media Milla', 'Puebla', 'Chofer Media Milla', '']
+    ['Line Haul', '', 'Chofer Line Haul', ''],
+    ['Media Milla', 'Puebla', 'Chofer Media Milla', ''],
+    ['Media Milla', '', 'Chofer Media Milla', '']
   ];
   sheet.getRange(2, 1, ejemplo.length, 4).setValues(ejemplo);
   sheet.autoResizeColumns(1, headers.length);
