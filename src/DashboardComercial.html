@@ -531,6 +531,13 @@
         .withSuccessHandler(function () {
           boton.disabled = false;
           boton.textContent = 'Guardar solicitud';
+          var resultado = ultimoCalculo.resultado;
+          var mensaje = 'Solicitud guardada en la hoja Solicitudes.';
+          if (resultado.casetasEstimadas && ultimoCalculo.datos.puntoA && ultimoCalculo.datos.puntoB) {
+            mensaje += ' Esta ruta (' + ultimoCalculo.datos.puntoA + ' - ' + ultimoCalculo.datos.puntoB +
+              ') se agregó al catálogo Casetas con el costo estimado, para la próxima vez.';
+          }
+          document.getElementById('mensaje-guardado').textContent = mensaje;
           document.getElementById('mensaje-guardado').style.display = 'block';
         })
         .withFailureHandler(function (error) {

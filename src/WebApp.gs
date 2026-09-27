@@ -202,6 +202,10 @@ function guardarSolicitudWeb(datos, resultado) {
     resultado.tarifaPorUnidadPiso, resultado.tarifaPorUnidadObjetivo, tarifaVigenteRegistrada
   ]]);
 
+  if (resultado.casetasEstimadas && datos.puntoA && datos.puntoB) {
+    agregarCasetaAprendida_(datos.puntoA, datos.puntoB, resultado.costoCasetas);
+  }
+
   return true;
 }
 

@@ -107,6 +107,12 @@ Catálogos (los mantiene Vanessa):
   cotiza una ruta que todavía no está aquí, el sistema no se bloquea:
   estima el costo con kilómetros × Costo Casetas Estimado ($/km) de
   `Config`, para poder cotizar cualquier ruta del país desde el día uno.
+  **El catálogo se auto-completa solo**: cada vez que se guarda una
+  solicitud cuya caseta fue estimada, esa ruta (Punto A, Punto B, costo
+  estimado, con nota de que viene de una solicitud guardada) se agrega
+  automáticamente a `Casetas`, así que la próxima vez que pidan esa misma
+  ruta ya no es un estimado. Vanessa puede después ir ajustando esos
+  valores aprendidos con el costo real de CAPUFE.
 - **Ruta-Zona-Puesto** — el Puesto Principal (y el Auxiliar) que aplica.
   Para **Local** y **Foráneo** (operación propia de BDB, sin Punto A/B)
   basta con el Tipo de Ruta, con Destino en blanco. Para **Line Haul** y

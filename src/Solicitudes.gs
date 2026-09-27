@@ -20,6 +20,34 @@ function buscarCasetasExacto_(puntoA, puntoB) {
   return null;
 }
 
+/**
+ * Agrega una ruta nueva a la hoja Casetas con el costo que se estimo por
+ * km, para que la proxima vez que se pida esa misma ruta ya no sea un
+ * estimado. Se llama solo al GUARDAR una solicitud (no en cada calculo),
+ * para no llenar el catalogo con rutas que Comercial solo esta probando.
+ * Si la ruta ya existe (alguien mas la guardo mientras tanto) no duplica.
+ */
+function agregarCasetaAprendida_(puntoA, puntoB, costo) {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CASETAS);
+  if (!hoja) return;
+  if (buscarCasetasExacto_(puntoA, puntoB)) return;
+
+  var columnaA = hoja.getRange(2, 1, FILAS_CASETAS, 1).getValues();
+  for (var i = 0; i < columnaA.length; i++) {
+    if (columnaA[i][0] === '') {
+      var fila = 2 + i;
+      hoja.getRange(fila, 1, 1, 4).setValues([[
+        puntoA, puntoB, costo,
+        'Estimado automaticamente desde una solicitud guardada el ' +
+          Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd') +
+          ' — validar/ajustar con el costo real de caseta.'
+      ]]);
+      return;
+    }
+  }
+  // Catalogo lleno (sin filas libres hasta FILAS_CASETAS): no se agrega, se sigue estimando por km.
+}
+
 /** Costo de casetas estimado ($/km), tomado de Config, para cuando la ruta no esta en el catalogo. */
 function obtenerCostoCasetasPorKm_() {
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CONFIG);
