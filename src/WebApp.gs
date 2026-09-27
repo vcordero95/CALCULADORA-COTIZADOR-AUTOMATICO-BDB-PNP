@@ -125,32 +125,24 @@ function siguienteFilaLibreCotizador_(sheet) {
 }
 
 /**
- * Calcula una solicitud de tarifa de cliente desde el dashboard de
- * Comercial. La Modalidad decide el camino:
- *  - "Service Partner": tarifa de red ya negociada, se BUSCA en Tarifas
- *    Vigentes por Cliente (BUSCAR_TARIFA_SERVICE_PARTNER), no se calcula
- *    costo.
- *  - "XPT" (solo Mercado Libre): se BUSCA la tarifa exacta de ruta
- *    dedicada de MELI por Estacion + Tipo de Unidad + km, igual que ya
- *    se hace para las demas modalidades cuando Cliente es Mercado Libre.
- *  - Cualquier otra Modalidad (Dedicada, Spot, Line Haul, Media Milla):
- *    pasa por el motor de costos, reusando SOLICITAR_TARIFA(). Comercial
- *    no captura margen: se usa la politica fija de la empresa (Margen
- *    Piso / Margen Objetivo en Config) y se regresan ambas tarifas.
+ * Calcula una solicitud de tarifa de cliente (modo "Tarifa nueva" del
+ * dashboard de Comercial: se calcula desde costo, no se busca). La unica
+ * excepcion es "XPT" (solo Mercado Libre): su calculo siempre es la
+ * misma tabla estandarizada por Nivel (Estacion -> Nivel -> MELI
+ * Tarifas), sea la ruta nueva o repetida, asi que no pasa por Costos
+ * Unidad + Nomina + Casetas como las demas.
  *
- * En los tres casos se agregan, como referencia, las tarifas vigentes
- * del Cliente elegido.
+ * Cualquier otra Modalidad (Dedicada, Spot, Service Partner, Line Haul,
+ * Media Milla) si pasa por el motor de costos completo, reusando
+ * SOLICITAR_TARIFA() — incluida Service Partner, para poder proponerle
+ * una tarifa a un cliente que todavia no tiene una negociada. Comercial
+ * no captura margen: se usa la politica fija de la empresa (Margen Piso
+ * / Margen Objetivo en Config) y se regresan ambas tarifas.
+ *
+ * En todos los casos se agregan, como referencia (no como el resultado
+ * en si), las tarifas vigentes del Cliente elegido.
  */
 function calcularSolicitudWeb(datos) {
-  if (datos.modalidad === 'Service Partner') {
-    var busquedaSp = BUSCAR_TARIFA_SERVICE_PARTNER(datos.cliente);
-    return {
-      esBusquedaTarifa: true,
-      referenciasVigentes: busquedaSp.referenciasVigentes,
-      tarifaMeli: null
-    };
-  }
-
   if (datos.modalidad === 'XPT') {
     if (datos.cliente !== 'Mercado Libre') {
       throw new Error('XPT solo aplica para Mercado Libre.');

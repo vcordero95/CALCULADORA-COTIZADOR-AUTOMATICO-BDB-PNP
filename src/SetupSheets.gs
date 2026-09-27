@@ -33,22 +33,25 @@ var FILAS_SOLICITUDES = 500;
  *
  * Alcance (Local/Foraneo) y Modalidad son dos campos independientes:
  * cualquier Modalidad puede ser Local o Foranea. Alcance es lo que
- * resuelve el Puesto (chofer local vs foraneo). Modalidad es lo que
- * determina si se captura Punto A/Punto B (Line Haul, Media Milla,
- * Service Partner y XPT si; Dedicada y Spot no) y como se calcula la
- * tarifa:
- *  - Dedicada, Spot, Line Haul, Media Milla: motor de costos (Costos
- *    Unidad + Nomina + Casetas [solo Line Haul/Media Milla] + margen).
- *  - Service Partner: tarifa de red ya negociada (no se calcula desde
- *    costo): se busca en Tarifas Vigentes por Cliente.
- *  - XPT (solo Mercado Libre): la misma tabla estandarizada de rutas
- *    dedicadas de MELI (Estacion -> Nivel -> MELI Tarifas).
+ * resuelve el Puesto (chofer local vs foraneo). Modalidad determina si
+ * se captura Punto A/Punto B (Line Haul, Media Milla, Service Partner y
+ * XPT si; Dedicada y Spot no).
+ *
+ * El modo "Tarifa nueva" vs "Tarifa existente" (que ya elige Comercial
+ * en el dashboard) es lo que decide si se CALCULA desde costo o se
+ * BUSCA lo ya negociado — no la Modalidad. La unica excepcion es XPT
+ * (solo Mercado Libre): su "calculo" siempre es la misma tabla
+ * estandarizada por Nivel (Estacion -> Nivel -> MELI Tarifas), sea la
+ * ruta nueva o repetida, asi que en modo "Tarifa nueva" tambien se
+ * resuelve por esa tabla en vez de por Costos Unidad + Nomina + Casetas.
+ * El resto de Modalidades (incluida Service Partner) si usa el motor de
+ * costos completo en modo "Tarifa nueva", para poder proponerle una
+ * tarifa a un cliente que todavia no tiene una negociada.
  */
 var ALCANCES = ['Local', 'Foráneo'];
 var MODALIDADES = ['Dedicada', 'Spot', 'Service Partner', 'Line Haul', 'Media Milla', 'XPT'];
 var MODALIDADES_CON_PUNTO_A_B = ['Line Haul', 'Media Milla', 'Service Partner', 'XPT'];
 var MODALIDADES_CON_CASETA = ['Line Haul', 'Media Milla'];
-var MODALIDADES_MOTOR_COSTOS = ['Dedicada', 'Spot', 'Line Haul', 'Media Milla'];
 var FRECUENCIAS = ['7x7', '6x7', '5x7', '4x7', '3x7', '2x7', '1x7'];
 var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
 

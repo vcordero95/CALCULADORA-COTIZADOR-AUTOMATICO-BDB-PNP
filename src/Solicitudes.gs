@@ -129,11 +129,10 @@ function obtenerMargenesPolitica_() {
 
 /**
  * Calcula la tarifa de una solicitud de Comercial a partir de las
- * caracteristicas de la ruta, no de costos. Se usa para las Modalidades
- * que si tienen motor de costos (ver MODALIDADES_MOTOR_COSTOS: Dedicada,
- * Spot, Line Haul, Media Milla) — Service Partner y XPT no pasan por
- * aqui, se resuelven por busqueda (ver BUSCAR_TARIFA_SERVICE_PARTNER y
- * el manejo de XPT en WebApp.gs).
+ * caracteristicas de la ruta, no de costos. Se usa para todas las
+ * Modalidades en modo "Tarifa nueva" excepto XPT, cuyo calculo siempre
+ * es la tabla estandarizada por Nivel de MELI (ver el manejo de XPT en
+ * WebApp.gs / calcularSolicitudWeb).
  *
  * Alcance (Local/Foraneo) resuelve el Puesto principal (y el Auxiliar,
  * si la ruta lo necesita) en la hoja Alcance-Puesto, sin importar la
@@ -248,18 +247,3 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   };
 }
 
-/**
- * Service Partner es tarifa de red ya negociada con el cliente (no un
- * costo de ruta que se calcule desde cero, ver Hoja 9 del tarifario
- * original: Tarifa Base + Diferenciador Foraneo = Total). En vez de
- * correr el motor de costos, se buscan las tarifas vigentes de ese
- * Cliente para que Comercial las revise; si no hay ninguna para el
- * Punto B que le estan pidiendo, hay que negociar una nueva con el
- * cliente en vez de inventar un costo.
- */
-function BUSCAR_TARIFA_SERVICE_PARTNER(cliente) {
-  if (!cliente || cliente === 'Nuevo Cliente') {
-    return { referenciasVigentes: [] };
-  }
-  return { referenciasVigentes: buscarTarifasVigentesPorCliente_(cliente) };
-}
