@@ -98,7 +98,7 @@
       font-size: 12px;
     }
     #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
-    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente { display: none; }
+    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b { display: none; }
   </style>
 </head>
 <body>
@@ -142,14 +142,14 @@
           </div>
         </div>
 
-        <div class="fila-doble">
-          <div id="campo-punto-a">
+        <div class="fila-doble" id="campo-punto-a-b">
+          <div>
             <label for="puntoA">Punto A <span class="ayuda">(origen)</span></label>
             <select id="puntoA"></select>
           </div>
           <div>
             <label for="puntoB">Punto B <span class="ayuda">(destino)</span></label>
-            <select id="puntoB" required></select>
+            <select id="puntoB"></select>
           </div>
         </div>
 
@@ -326,11 +326,16 @@
       var esMeliDedicada = cliente === 'Mercado Libre' && tipoCobro === 'Por Ruta';
       document.getElementById('campo-estacion-meli').style.display = esMeliDedicada ? 'block' : 'none';
 
-      var llevaCaseta = tiposRutaConCaseta.indexOf(tipoRuta) !== -1;
+      var esPuntoAPuntoB = tiposRutaConCaseta.indexOf(tipoRuta) !== -1;
       var puntoA = document.getElementById('puntoA');
-      document.getElementById('campo-punto-a').style.display = llevaCaseta ? 'block' : 'none';
-      puntoA.required = llevaCaseta;
-      if (!llevaCaseta) puntoA.value = '';
+      var puntoB = document.getElementById('puntoB');
+      document.getElementById('campo-punto-a-b').style.display = esPuntoAPuntoB ? 'flex' : 'none';
+      puntoA.required = esPuntoAPuntoB;
+      puntoB.required = esPuntoAPuntoB;
+      if (!esPuntoAPuntoB) {
+        puntoA.value = '';
+        puntoB.value = '';
+      }
     }
 
     function actualizarVisibilidadExistente() {

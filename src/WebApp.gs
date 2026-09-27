@@ -40,7 +40,7 @@ function obtenerCatalogos() {
 function obtenerCatalogosComercial() {
   var soloLlenos = function (valor) { return valor !== ''; };
 
-  var puntos = obtenerHojaPuntos_().getRange(2, 1, FILAS_CATALOGO, 1).getValues()
+  var puntos = obtenerHojaPuntos_().getRange(2, 1, FILAS_PUNTOS, 1).getValues()
     .map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
   var unidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 1)

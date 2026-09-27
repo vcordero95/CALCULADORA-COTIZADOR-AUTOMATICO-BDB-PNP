@@ -12,8 +12,11 @@ var HOJA_CONFIG = 'Config';
 var COTIZADOR = 'Cotizador';
 var HOJA_SOLICITUDES = 'Solicitudes';
 
-/** Filas reservadas para cada catalogo (Costos Unidad, Nomina, Puntos). */
+/** Filas reservadas para cada catalogo (Costos Unidad, Nomina). */
 var FILAS_CATALOGO = 50;
+
+/** Filas reservadas para el catalogo de Puntos (cobertura nacional de ciudades). */
+var FILAS_PUNTOS = 300;
 
 /** Filas reservadas para combinaciones Tipo de Ruta + Destino, y para Casetas (Punto A + Punto B). */
 var FILAS_RUTA_ZONA = 100;
@@ -28,12 +31,14 @@ var FILAS_SOLICITUDES = 500;
  * categorias estables del negocio (no un catalogo que crezca), por eso
  * van fijas en el codigo en vez de en una hoja.
  *
- * Tipo de Ruta es lo que determina si la ruta lleva o no casetas: Local
- * es dentro de una misma ciudad (no lleva caseta); Foraneo, Line Haul y
- * Media Milla son de Punto A a Punto B (si llevan caseta).
+ * Tipo de Ruta es lo que determina si la ruta lleva o no casetas y si se
+ * captura Punto A / Punto B: Local y Foraneo son operacion propia (un
+ * solo Puesto por Tipo de Ruta, sin necesidad de Punto A/B ni caseta);
+ * Line Haul y Media Milla son rutas de Punto A a Punto B (si llevan
+ * caseta, y el Puesto se resuelve por Tipo de Ruta + Punto B).
  */
 var TIPOS_RUTA = ['Local', 'Foráneo', 'Line Haul', 'Media Milla'];
-var TIPOS_RUTA_CON_CASETA = ['Foráneo', 'Line Haul', 'Media Milla'];
+var TIPOS_RUTA_CON_CASETA = ['Line Haul', 'Media Milla'];
 var FRECUENCIAS = ['7x7', '6x7', '5x7', '4x7', '3x7', '2x7', '1x7'];
 var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
 
@@ -227,9 +232,51 @@ function setupNomina_() {
 }
 
 /**
+ * Ciudades de las 32 capitales estatales mas las plazas logisticas/
+ * industriales mas relevantes de cada estado, para que Punto A / Punto B
+ * cubran el pais completo desde el dia uno (Comercial no sabe de
+ * antemano donde le van a solicitar una ruta). Vanessa puede agregar mas
+ * abajo del catalogo cuando haga falta.
+ */
+var _PUNTOS_NACIONAL = [
+  'CDMX', 'Aguascalientes', 'Mexicali', 'Tijuana', 'Ensenada', 'Tecate', 'Playas de Rosarito',
+  'La Paz', 'Los Cabos', 'San José del Cabo', 'Ciudad Constitución',
+  'Campeche', 'Ciudad del Carmen',
+  'Tuxtla Gutiérrez', 'Tapachula', 'San Cristóbal de las Casas', 'Comitán',
+  'Chihuahua', 'Ciudad Juárez', 'Delicias', 'Cuauhtémoc', 'Parral', 'Nuevo Casas Grandes',
+  'Saltillo', 'Torreón', 'Monclova', 'Piedras Negras', 'Acuña', 'Ramos Arizpe',
+  'Colima', 'Manzanillo', 'Tecomán',
+  'Durango', 'Gómez Palacio', 'Lerdo',
+  'Guanajuato', 'León', 'Irapuato', 'Celaya', 'Salamanca', 'Silao', 'San Miguel de Allende', 'Salvatierra',
+  'Acapulco', 'Chilpancingo', 'Zihuatanejo', 'Iguala', 'Taxco',
+  'Pachuca', 'Tulancingo', 'Tula de Allende', 'Huejutla',
+  'Guadalajara', 'Zapopan', 'Puerto Vallarta', 'Lagos de Moreno', 'Tepatitlán', 'Ciudad Guzmán', 'Ocotlán',
+  'Toluca', 'Naucalpan', 'Ecatepec', 'Tlalnepantla', 'Nezahualcóyotl', 'Cuautitlán Izcalli', 'Texcoco', 'Metepec', 'Valle de Bravo',
+  'Morelia', 'Uruapan', 'Zamora', 'Zitácuaro', 'Lázaro Cárdenas', 'Apatzingán',
+  'Cuernavaca', 'Cuautla', 'Jojutla',
+  'Tepic', 'Bahía de Banderas', 'Xalisco',
+  'Monterrey', 'Guadalupe (NL)', 'San Nicolás de los Garza', 'Apodaca', 'General Escobedo', 'Santa Catarina', 'Linares',
+  'Oaxaca de Juárez', 'Salina Cruz', 'Tuxtepec', 'Huajuapan de León',
+  'Puebla', 'Tehuacán', 'Cholula', 'Atlixco', 'San Martín Texmelucan',
+  'Querétaro', 'San Juan del Río', 'Corregidora', 'El Marqués',
+  'Chetumal', 'Cancún', 'Playa del Carmen', 'Cozumel', 'Tulum',
+  'San Luis Potosí', 'Ciudad Valles', 'Matehuala', 'Rioverde',
+  'Culiacán', 'Mazatlán', 'Los Mochis', 'Guasave', 'Guamúchil',
+  'Hermosillo', 'Ciudad Obregón', 'Nogales', 'Guaymas', 'San Luis Río Colorado', 'Navojoa',
+  'Villahermosa', 'Cárdenas (Tab)', 'Comalcalco',
+  'Ciudad Victoria', 'Reynosa', 'Matamoros', 'Nuevo Laredo', 'Tampico', 'Ciudad Madero', 'Río Bravo',
+  'Tlaxcala', 'Apizaco', 'Huamantla',
+  'Veracruz', 'Xalapa', 'Coatzacoalcos', 'Córdoba', 'Orizaba', 'Poza Rica', 'Minatitlán', 'Boca del Río', 'San Andrés Tuxtla',
+  'Mérida', 'Progreso', 'Valladolid', 'Tizimín',
+  'Zacatecas', 'Fresnillo', 'Jerez'
+];
+
+/**
  * "Puntos": catalogo de ciudades/puntos que se usan como Punto A
  * (origen) y Punto B (destino) de una ruta, y como Destino en
- * Ruta-Zona-Puesto.
+ * Ruta-Zona-Puesto. Viene precargado con cobertura nacional (ver
+ * _PUNTOS_NACIONAL); Vanessa puede agregar mas ciudades abajo cuando
+ * haga falta.
  */
 function setupPuntos_() {
   var ss = SpreadsheetApp.getActive();
@@ -242,7 +289,7 @@ function setupPuntos_() {
     .setFontWeight('bold').setBackground('#4a3a1c').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
 
-  var ejemplo = [['CDMX'], ['Querétaro'], ['Puebla'], ['Toluca'], ['Monterrey'], ['Guadalajara']];
+  var ejemplo = _PUNTOS_NACIONAL.map(function(p) { return [p]; });
   sheet.getRange(2, 1, ejemplo.length, 1).setValues(ejemplo);
   sheet.autoResizeColumns(1, headers.length);
   return sheet;
@@ -270,7 +317,7 @@ function setupCasetas_(hojaPuntos) {
   sheet.setFrozenRows(1);
 
   var puntoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
+    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_PUNTOS, 1), true).setAllowInvalid(false).build();
   sheet.getRange(2, 1, FILAS_CASETAS, 1).setDataValidation(puntoRule);
   sheet.getRange(2, 2, FILAS_CASETAS, 1).setDataValidation(puntoRule);
 
@@ -286,10 +333,12 @@ function setupCasetas_(hojaPuntos) {
 }
 
 /**
- * "Ruta-Zona-Puesto": por cada combinacion de Tipo de Ruta + Destino
- * (Punto B), que Puesto principal (y cual Auxiliar, si la ruta lo
- * necesita) aplica. Esto es lo que permite que Comercial elija Tipo de
- * Ruta + Punto A/Punto B sin tener que saber nada de nomina.
+ * "Ruta-Zona-Puesto": el Puesto principal (y el Auxiliar, si la ruta lo
+ * necesita) que aplica para cada Tipo de Ruta. Para Local y Foraneo (que
+ * no capturan Punto A/B) basta con el Tipo de Ruta, con Destino en
+ * blanco; para Line Haul y Media Milla (rutas de Punto A a Punto B) se
+ * resuelve por Tipo de Ruta + Destino (Punto B), ya que el puesto puede
+ * variar segun el corredor especifico.
  */
 function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   var ss = SpreadsheetApp.getActive();
@@ -297,7 +346,7 @@ function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   sheet.clear();
   sheet.getDataRange().clearDataValidations();
 
-  var headers = ['Tipo de Ruta', 'Destino (Punto B)', 'Puesto Principal', 'Puesto Auxiliar'];
+  var headers = ['Tipo de Ruta', 'Destino (Punto B, solo Line Haul/Media Milla)', 'Puesto Principal', 'Puesto Auxiliar'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#4a1c3a').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
@@ -307,7 +356,7 @@ function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   sheet.getRange(2, 1, FILAS_RUTA_ZONA, 1).setDataValidation(tipoRutaRule);
 
   var puntoRule = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_CATALOGO, 1), true).setAllowInvalid(false).build();
+    .requireValueInRange(hojaPuntos.getRange(2, 1, FILAS_PUNTOS, 1), true).setAllowInvalid(false).build();
   sheet.getRange(2, 2, FILAS_RUTA_ZONA, 1).setDataValidation(puntoRule);
 
   var puestoRule = SpreadsheetApp.newDataValidation()
@@ -316,9 +365,8 @@ function setupRutaZonaPuesto_(hojaPuntos, hojaNomina) {
   sheet.getRange(2, 4, FILAS_RUTA_ZONA, 1).setDataValidation(puestoRule);
 
   var ejemplo = [
-    ['Local', 'CDMX', 'Chofer Local', 'Auxiliar Local'],
-    ['Foráneo', 'Monterrey', 'Chofer Foraneo', 'Auxiliar Foraneo'],
-    ['Foráneo', 'Guadalajara', 'Chofer Foraneo', 'Auxiliar Foraneo'],
+    ['Local', '', 'Chofer Local', 'Auxiliar Local'],
+    ['Foráneo', '', 'Chofer Foraneo', 'Auxiliar Foraneo'],
     ['Line Haul', 'Querétaro', 'Chofer Line Haul', ''],
     ['Media Milla', 'Puebla', 'Chofer Media Milla', '']
   ];
