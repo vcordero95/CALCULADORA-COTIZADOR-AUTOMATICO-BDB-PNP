@@ -21,15 +21,21 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   Puesto/Categoría de Sueldo. Es la hoja **Cotizador** y el dashboard
   `?vista=interna`.
 - **Dashboard de Comercial (solicitud de tarifa de cliente)** — Comercial
-  no ve costos ni margen: captura Cliente, Tipo de Ruta, Punto B
-  (destino) — y Punto A (origen) solo si el Tipo de Ruta lleva caseta —,
-  Tipo de Unidad, Frecuencia, Volumen (cantidad de paquetes), km, Tipo de
-  Cobro y si necesita auxiliar. El sistema resuelve solo el Puesto (y el
-  Auxiliar), el costo de casetas de esa ruta y los viajes al mes por
-  frecuencia; calcula la Tarifa Piso (20%) y la Tarifa Objetivo (30%) con
-  la política fija de margen de la empresa, y las muestra junto a las
-  tarifas vigentes registradas para ese cliente. Es la hoja
-  **Solicitudes** y el dashboard por default (sin `?vista=`).
+  no ve costos ni margen. Primero elige qué necesita:
+  - **Tarifa nueva** (calcular desde cero): captura Cliente, Tipo de Ruta,
+    Punto B (destino) — y Punto A (origen) solo si el Tipo de Ruta lleva
+    caseta —, Tipo de Unidad, Frecuencia, Volumen (cantidad de paquetes),
+    km, Tipo de Cobro y si necesita auxiliar. El sistema resuelve solo el
+    Puesto (y el Auxiliar), el costo de casetas de esa ruta y los viajes
+    al mes por frecuencia; calcula la Tarifa Piso (20%) y la Tarifa
+    Objetivo (30%) con la política fija de margen de la empresa. Es la
+    hoja **Solicitudes**.
+  - **Tarifa existente** (buscar en el tarifario): solo elige Cliente (y,
+    para Mercado Libre, opcionalmente Estación + Tipo de Unidad + km) y
+    ve directo lo que ya está registrado en `Tarifas Vigentes` / `MELI
+    Tarifas`, sin recalcular nada.
+
+  Ambos modos comparten el dashboard por default (sin `?vista=`).
 
 La tarifa para proveedores de red externa **no** está incluida todavía
 (queda para después, como marca el brief original).

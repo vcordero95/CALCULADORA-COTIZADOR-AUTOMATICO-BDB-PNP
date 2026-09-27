@@ -65,11 +65,10 @@
     table td, table th { padding: 6px 4px; border-bottom: 1px solid #eef1f6; text-align: left; }
     table td:last-child, table th:last-child { text-align: right; font-weight: 600; }
     .tabla-referencia { font-size: 12px; }
-    .seccion-referencia { margin-top: 14px; }
     .seccion-referencia h3 { font-size: 13px; margin: 0 0 6px; color: #5a6b85; }
     .comparacion {
       display: flex; justify-content: space-between; align-items: center;
-      background: #eef1f6; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 13px;
+      background: #eef1f6; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
     }
     .comparacion .valor { font-weight: 700; }
     .mensaje-error {
@@ -97,9 +96,9 @@
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 12px;
-      margin-top: 12px;
     }
-    #seccion-resultado, #seccion-error, #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad { display: none; }
+    #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
+    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente { display: none; }
   </style>
 </head>
 <body>
@@ -108,6 +107,14 @@
     <p class="subtitulo">Solicitud / revisión de tarifa de cliente</p>
 
     <div class="card">
+      <label for="modo">¿Qué necesitas?</label>
+      <select id="modo">
+        <option value="nueva">Tarifa nueva (calcular desde cero)</option>
+        <option value="existente">Tarifa existente (buscar en el tarifario)</option>
+      </select>
+    </div>
+
+    <div class="card" id="seccion-modo-nueva">
       <form id="form-solicitud">
         <div class="fila-doble">
           <div>
@@ -191,6 +198,31 @@
       </form>
     </div>
 
+    <div class="card" id="seccion-modo-existente">
+      <form id="form-buscar">
+        <label for="clienteExistente">Cliente</label>
+        <select id="clienteExistente" required></select>
+
+        <div id="campo-meli-existente">
+          <p class="ayuda">Para la tarifa exacta de ruta dedicada MELI, agrega estos datos (opcional; sin ellos solo se muestra la lista general).</p>
+          <div class="fila-doble">
+            <div>
+              <label for="estacionMeliExistente">Estación MELI</label>
+              <select id="estacionMeliExistente"></select>
+            </div>
+            <div>
+              <label for="tipoUnidadExistente">Tipo de Unidad</label>
+              <select id="tipoUnidadExistente"></select>
+            </div>
+          </div>
+          <label for="kmExistente">Kilómetros</label>
+          <input type="number" id="kmExistente" min="0" step="0.1">
+        </div>
+
+        <button type="submit" id="btn-buscar">Buscar tarifa</button>
+      </form>
+    </div>
+
     <div class="card" id="seccion-resultado">
       <div class="fila-tarifas">
         <div class="tarifa-piso">
@@ -222,13 +254,18 @@
         <tr><td>Costo total de la ruta</td><td id="r-costoTotal"></td></tr>
       </table>
 
+      <button type="button" class="secundario" id="btn-guardar">Guardar solicitud</button>
+      <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Solicitud guardada en la hoja Solicitudes.</div>
+    </div>
+
+    <div class="card" id="seccion-vigentes">
       <div id="bloque-tarifa-meli" style="display:none;" class="comparacion">
         <span>Tarifa vigente MELI (<span id="meli-nivel"></span>)</span>
         <span class="valor" id="meli-tarifa"></span>
       </div>
 
       <div class="seccion-referencia" id="seccion-referencias" style="display:none;">
-        <h3>Tarifas vigentes registradas para este cliente (referencia)</h3>
+        <h3>Tarifas vigentes registradas para este cliente</h3>
         <table class="tabla-referencia">
           <thead>
             <tr><th>Servicio</th><th>Svc / Ruta</th><th>Modalidad</th><th>Vehículo</th><th>Tarifa</th></tr>
@@ -239,9 +276,6 @@
       <div class="mensaje-pendiente" id="mensaje-sin-referencia" style="display:none;">
         Sin tarifas vigentes registradas para este cliente todavía.
       </div>
-
-      <button type="button" class="secundario" id="btn-guardar">Guardar solicitud</button>
-      <div class="mensaje-ok" id="mensaje-guardado" style="display:none;">Solicitud guardada en la hoja Solicitudes.</div>
     </div>
 
     <div class="card" id="seccion-error">
@@ -267,6 +301,19 @@
       });
     }
 
+    function ocultarResultados() {
+      document.getElementById('seccion-resultado').style.display = 'none';
+      document.getElementById('seccion-vigentes').style.display = 'none';
+      document.getElementById('seccion-error').style.display = 'none';
+    }
+
+    function actualizarVisibilidadModo() {
+      var modo = document.getElementById('modo').value;
+      document.getElementById('seccion-modo-nueva').style.display = modo === 'nueva' ? 'block' : 'none';
+      document.getElementById('seccion-modo-existente').style.display = modo === 'existente' ? 'block' : 'none';
+      ocultarResultados();
+    }
+
     function actualizarVisibilidadCampos() {
       var cliente = document.getElementById('cliente').value;
       var tipoCobro = document.getElementById('tipoCobro').value;
@@ -286,6 +333,11 @@
       if (!llevaCaseta) puntoA.value = '';
     }
 
+    function actualizarVisibilidadExistente() {
+      var cliente = document.getElementById('clienteExistente').value;
+      document.getElementById('campo-meli-existente').style.display = cliente === 'Mercado Libre' ? 'block' : 'none';
+    }
+
     function cargarCatalogos() {
       google.script.run
         .withSuccessHandler(function (catalogos) {
@@ -297,53 +349,71 @@
           poblarSelect(document.getElementById('tipoCobro'), catalogos.tiposCobro);
           poblarSelect(document.getElementById('cliente'), catalogos.clientes);
           poblarSelect(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
+
+          var clientesExistentes = catalogos.clientes.filter(function (c) { return c !== 'Nuevo Cliente'; });
+          poblarSelect(document.getElementById('clienteExistente'), clientesExistentes);
+          poblarSelect(document.getElementById('estacionMeliExistente'), catalogos.estacionesMeli);
+          poblarSelect(document.getElementById('tipoUnidadExistente'), catalogos.unidades);
+
           tiposRutaConCaseta = catalogos.tiposRutaConCaseta;
           actualizarVisibilidadCampos();
+          actualizarVisibilidadExistente();
         })
         .withFailureHandler(mostrarError)
         .obtenerCatalogosComercial();
     }
 
+    document.getElementById('modo').addEventListener('change', actualizarVisibilidadModo);
     document.getElementById('tipoRuta').addEventListener('change', actualizarVisibilidadCampos);
-
     document.getElementById('cliente').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('tipoCobro').addEventListener('change', actualizarVisibilidadCampos);
+    document.getElementById('clienteExistente').addEventListener('change', actualizarVisibilidadExistente);
 
     function mostrarError(error) {
       document.getElementById('seccion-resultado').style.display = 'none';
+      document.getElementById('seccion-vigentes').style.display = 'none';
       document.getElementById('seccion-error').style.display = 'block';
       document.getElementById('texto-error').textContent = error.message || error;
     }
 
-    function mostrarReferencias(referencias) {
-      var seccion = document.getElementById('seccion-referencias');
+    function mostrarReferenciasYMeli(referencias, tarifaMeli, cliente) {
+      var tarjeta = document.getElementById('seccion-vigentes');
+      var seccionRef = document.getElementById('seccion-referencias');
       var sinReferencia = document.getElementById('mensaje-sin-referencia');
-      var cliente = ultimoCalculo.datos.cliente;
+      var bloqueMeli = document.getElementById('bloque-tarifa-meli');
+
+      if (tarifaMeli) {
+        bloqueMeli.style.display = 'flex';
+        document.getElementById('meli-nivel').textContent = tarifaMeli.nivel;
+        document.getElementById('meli-tarifa').textContent = money(tarifaMeli.tarifa);
+      } else {
+        bloqueMeli.style.display = 'none';
+      }
 
       if (!cliente || cliente === 'Nuevo Cliente') {
-        seccion.style.display = 'none';
+        seccionRef.style.display = 'none';
         sinReferencia.style.display = 'none';
-        return;
-      }
-      if (!referencias || referencias.length === 0) {
-        seccion.style.display = 'none';
+      } else if (!referencias || referencias.length === 0) {
+        seccionRef.style.display = 'none';
         sinReferencia.style.display = 'block';
-        return;
+      } else {
+        sinReferencia.style.display = 'none';
+        seccionRef.style.display = 'block';
+        var cuerpo = document.getElementById('tabla-referencias-body');
+        cuerpo.innerHTML = '';
+        referencias.forEach(function (r) {
+          var fila = document.createElement('tr');
+          fila.innerHTML =
+            '<td>' + (r.tipoDeServicio || '') + '</td>' +
+            '<td>' + (r.svc || '') + (r.zonas ? ' / ' + r.zonas : '') + '</td>' +
+            '<td>' + (r.modalidad || '') + '</td>' +
+            '<td>' + (r.tipoVehiculo || '') + '</td>' +
+            '<td>' + money(r.tarifa) + '</td>';
+          cuerpo.appendChild(fila);
+        });
       }
-      sinReferencia.style.display = 'none';
-      seccion.style.display = 'block';
-      var cuerpo = document.getElementById('tabla-referencias-body');
-      cuerpo.innerHTML = '';
-      referencias.forEach(function (r) {
-        var fila = document.createElement('tr');
-        fila.innerHTML =
-          '<td>' + (r.tipoDeServicio || '') + '</td>' +
-          '<td>' + (r.svc || '') + (r.zonas ? ' / ' + r.zonas : '') + '</td>' +
-          '<td>' + (r.modalidad || '') + '</td>' +
-          '<td>' + (r.tipoVehiculo || '') + '</td>' +
-          '<td>' + money(r.tarifa) + '</td>';
-        cuerpo.appendChild(fila);
-      });
+
+      tarjeta.style.display = (tarifaMeli || (cliente && cliente !== 'Nuevo Cliente')) ? 'block' : 'none';
     }
 
     function mostrarResultado(resultado) {
@@ -376,20 +446,19 @@
       document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
       document.getElementById('r-costoTotal').textContent = money(resultado.costoTotal);
 
-      var bloqueMeli = document.getElementById('bloque-tarifa-meli');
-      if (resultado.tarifaMeli) {
-        bloqueMeli.style.display = 'flex';
-        document.getElementById('meli-nivel').textContent = resultado.tarifaMeli.nivel;
-        document.getElementById('meli-tarifa').textContent = money(resultado.tarifaMeli.tarifa);
-      } else {
-        bloqueMeli.style.display = 'none';
-      }
-
-      mostrarReferencias(resultado.referenciasVigentes);
+      mostrarReferenciasYMeli(resultado.referenciasVigentes, resultado.tarifaMeli, ultimoCalculo.datos.cliente);
 
       ultimoCalculo = { datos: ultimoCalculo.datos, resultado: resultado };
       document.getElementById('btn-calcular').disabled = false;
       document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
+    }
+
+    function mostrarResultadoExistente(resultado, cliente) {
+      document.getElementById('seccion-error').style.display = 'none';
+      document.getElementById('seccion-resultado').style.display = 'none';
+      mostrarReferenciasYMeli(resultado.referenciasVigentes, resultado.tarifaMeli, cliente);
+      document.getElementById('btn-buscar').disabled = false;
+      document.getElementById('btn-buscar').textContent = 'Buscar tarifa';
     }
 
     document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
@@ -423,6 +492,29 @@
           mostrarError(error);
         })
         .calcularSolicitudWeb(datos);
+    });
+
+    document.getElementById('form-buscar').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var cliente = document.getElementById('clienteExistente').value;
+      var datos = {
+        cliente: cliente,
+        estacionMeli: document.getElementById('estacionMeliExistente').value,
+        tipoUnidad: document.getElementById('tipoUnidadExistente').value,
+        km: Number(document.getElementById('kmExistente').value) || ''
+      };
+
+      document.getElementById('btn-buscar').disabled = true;
+      document.getElementById('btn-buscar').textContent = 'Buscando...';
+
+      google.script.run
+        .withSuccessHandler(function (resultado) { mostrarResultadoExistente(resultado, cliente); })
+        .withFailureHandler(function (error) {
+          document.getElementById('btn-buscar').disabled = false;
+          document.getElementById('btn-buscar').textContent = 'Buscar tarifa';
+          mostrarError(error);
+        })
+        .buscarTarifaExistenteWeb(datos);
     });
 
     document.getElementById('btn-guardar').addEventListener('click', function () {

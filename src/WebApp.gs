@@ -153,6 +153,28 @@ function calcularSolicitudWeb(datos) {
 }
 
 /**
+ * Busca una tarifa YA EXISTENTE para un Cliente, sin pasar por el motor
+ * de costos: solo consulta lo que ya esta capturado en Tarifas Vigentes
+ * (y, si Cliente es Mercado Libre y se dan Estacion + Tipo de Unidad +
+ * km, la tarifa exacta de ruta dedicada en MELI Tarifas). Es el modo
+ * "Tarifa existente" del dashboard de Comercial.
+ */
+function buscarTarifaExistenteWeb(datos) {
+  var referenciasVigentes = [];
+  var tarifaMeli = null;
+
+  if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
+    referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
+
+    if (datos.cliente === 'Mercado Libre' && datos.estacionMeli && datos.tipoUnidad && datos.km) {
+      tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+    }
+  }
+
+  return { referenciasVigentes: referenciasVigentes, tarifaMeli: tarifaMeli };
+}
+
+/**
  * Guarda la solicitud calculada (dashboard de Comercial) como un renglon
  * nuevo en la hoja Solicitudes, con los valores ya resueltos.
  */
