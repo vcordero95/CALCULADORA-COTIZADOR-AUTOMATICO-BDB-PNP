@@ -163,11 +163,13 @@ function setupCostosUnidad_() {
 
   // Nombres alineados con el tarifario real de clientes (Tarifas Vigentes),
   // para que Tipo de Unidad sí cruce con esa referencia.
+  // Renta Mensual: datos reales de Vanessa (Mantenimiento/Rendimiento/
+  // Combustible siguen siendo de ejemplo hasta confirmar).
   var ejemplo = [
     ['Auto', 8000, 4000, 12.0, 'Gasolina'],
-    ['Small Van - 1 tn', 11000, 5500, 8.0, 'Gasolina'],
-    ['Large Van - 1.5 tn', 15000, 8000, 6.0, 'Diesel'],
-    ['3.5 T caja seca', 18000, 10000, 4.5, 'Diesel']
+    ['Small Van - 1 tn', 15000, 5500, 8.0, 'Gasolina'],
+    ['Large Van - 1.5 tn', 32000, 8000, 6.0, 'Diesel'],
+    ['3.5 T caja seca', 48250, 10000, 4.5, 'Diesel']
   ];
   sheet.getRange(2, 1, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[0]]; }));
   sheet.getRange(2, 2, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[1]]; }));
