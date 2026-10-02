@@ -48,7 +48,7 @@ function agregarCasetaAprendida_(puntoA, puntoB, costo) {
   // Catalogo lleno (sin filas libres hasta FILAS_CASETAS): no se agrega, se sigue estimando por km.
 }
 
-/** Costo de casetas estimado ($/km), tomado de Config, para cuando la ruta no esta en el catalogo. */
+/** Costo de casetas estimado ($/km), tomado de Config, para cuando la ruta no esta en el catalogo ni la pudo resolver INEGI. */
 function obtenerCostoCasetasPorKm_() {
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CONFIG);
   if (!hoja) {
@@ -57,16 +57,81 @@ function obtenerCostoCasetasPorKm_() {
   return Number(hoja.getRange(7, 2).getValue()) || 0;
 }
 
+/** Token de la API de Ruteo de INEGI (SAKBE), tomado de Config. */
+function obtenerTokenInegi_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CONFIG);
+  if (!hoja) {
+    throw new Error('No existe la hoja "' + HOJA_CONFIG + '". Ejecuta Cotizador BDB > Inicializar hojas.');
+  }
+  return String(hoja.getRange(8, 2).getValue() || '').trim();
+}
+
+/**
+ * Busca el id_dest de un lugar en la API de Ruteo de INEGI (funcion
+ * buscadestino). Regresa null si no hay match o si la llamada falla,
+ * para que el llamador siga con el estimado por km sin romper la
+ * cotizacion.
+ */
+function buscarIdDestinoInegi_(nombreLugar, token) {
+  try {
+    var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino', {
+      method: 'post',
+      payload: { buscar: nombreLugar, type: 'json', num: 1, key: token },
+      muteHttpExceptions: true
+    });
+    if (respuesta.getResponseCode() !== 200) return null;
+    var datos = JSON.parse(respuesta.getContentText());
+    if (!datos.response || !datos.response.success || !datos.data || !datos.data.length) return null;
+    return datos.data[0].id_dest;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Consulta en vivo el costo de caseta de una ruta Punto A -> Punto B en
+ * la API de Ruteo de INEGI (SAKBE), usando el Codigo de Vehiculo INEGI
+ * del Tipo de Unidad elegido (varia el costo real: no es lo mismo Auto
+ * que Camion). Regresa null ante cualquier falla (lugar no encontrado,
+ * error de red, respuesta invalida), nunca truena: el llamador cae al
+ * estimado por km.
+ */
+function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
+  var token = obtenerTokenInegi_();
+  if (!token || !puntoA || !puntoB) return null;
+
+  var idA = buscarIdDestinoInegi_(puntoA, token);
+  var idB = buscarIdDestinoInegi_(puntoB, token);
+  if (!idA || !idB) return null;
+
+  try {
+    var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/cuota', {
+      method: 'post',
+      payload: { dest_i: idA, dest_f: idB, v: codigoVehiculo, type: 'json', key: token },
+      muteHttpExceptions: true
+    });
+    if (respuesta.getResponseCode() !== 200) return null;
+    var datos = JSON.parse(respuesta.getContentText());
+    if (!datos.response || !datos.response.success || !datos.data) return null;
+    return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Resuelve el costo de casetas de una ruta segun la Modalidad (no el
  * Alcance): "Line Haul" y "Media Milla" son de Punto A a Punto B y si
- * llevan caseta; el resto no. Cuando aplica, se busca el costo exacto en
- * la hoja Casetas, y si esa ruta especifica todavia no esta capturada,
+ * llevan caseta; el resto no. Cuando aplica, se busca primero el costo
+ * exacto en la hoja Casetas; si esa ruta especifica todavia no esta
+ * capturada, se consulta en vivo la API de Ruteo de INEGI (variando
+ * segun el Codigo de Vehiculo INEGI del Tipo de Unidad elegido); y solo
+ * si INEGI tampoco puede resolverla (lugar no encontrado, error de red),
  * se estima con kilometros x Costo Casetas Estimado ($/km) de Config,
  * para poder cotizar cualquier ruta del pais sin esperar a que el
  * catalogo este completo.
  */
-function resolverCostoCasetas_(modalidad, puntoA, puntoB, km) {
+function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
   if (MODALIDADES_CON_CASETA.indexOf(modalidad) === -1) {
     return { costo: 0, estimado: false, fuente: 'No aplica para Modalidad "' + modalidad + '"' };
   }
@@ -76,12 +141,21 @@ function resolverCostoCasetas_(modalidad, puntoA, puntoB, km) {
     return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: filaExacta[3] || '' };
   }
 
+  var resultadoInegi = (puntoA && puntoB) ? consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) : null;
+  if (resultadoInegi) {
+    return {
+      costo: resultadoInegi.costo,
+      estimado: true,
+      fuente: 'Consultado en vivo a la API de Ruteo de INEGI (SAKBE), ' + resultadoInegi.km + ' km — validar/ajustar con el costo real de caseta.'
+    };
+  }
+
   var costoPorKm = obtenerCostoCasetasPorKm_();
   var kilometros = Number(km) || 0;
   return {
     costo: costoPorKm * kilometros,
     estimado: true,
-    fuente: 'Estimado a ' + costoPorKm + ' $/km (ruta no esta en el catalogo Casetas)'
+    fuente: 'Estimado a ' + costoPorKm + ' $/km (ruta no esta en el catalogo Casetas ni la pudo resolver INEGI)'
   };
 }
 
@@ -204,7 +278,8 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   var rentaMensual = Number(filaUnidad[1]) || 0;
   var mantenimientoMensual = Number(filaUnidad[3]) || 0;
   var gasolinaKm = Number(filaUnidad[7]) || 0;
-  var infoCasetas = resolverCostoCasetas_(modalidad, puntoA, puntoB, km);
+  var codigoVehiculo = filaUnidad[8];
+  var infoCasetas = resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo);
   var costoCasetas = infoCasetas.costo;
 
   var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, costoCasetas);

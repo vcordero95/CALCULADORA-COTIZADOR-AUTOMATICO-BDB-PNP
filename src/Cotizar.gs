@@ -62,7 +62,7 @@ function obtenerHojaPuntos_() {
 
 /** Busca un Tipo de Unidad en la hoja Costos Unidad. Regresa null si no existe. */
 function buscarUnidadPorTipo_(tipoUnidad) {
-  var datos = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 8).getValues();
+  var datos = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 9).getValues();
   for (var i = 0; i < datos.length; i++) {
     if (datos[i][0] === tipoUnidad) return datos[i];
   }

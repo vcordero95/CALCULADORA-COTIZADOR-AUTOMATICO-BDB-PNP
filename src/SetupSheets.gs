@@ -92,13 +92,16 @@ function initializeProject() {
 /**
  * "Config": precios de combustible, parte fiscal por periodo, la
  * politica de margen (Piso / Objetivo) que usa el dashboard de Comercial
- * en vez de pedirle el margen a Comercial, y el costo de casetas
- * estimado por km (respaldo cuando Punto A + Punto B no esta en la hoja
- * Casetas: ~$4.00/km, promedio de camion de 2 ejes calculado con
+ * en vez de pedirle el margen a Comercial, el costo de casetas estimado
+ * por km (ultimo respaldo cuando ni la hoja Casetas ni la API de INEGI
+ * tienen la ruta: ~$4.00/km, promedio de camion de 2 ejes calculado con
  * cobertura de prensa 2026 sobre tarifas CAPUFE en varios corredores —
  * Mexico-Queretaro, Mexico-Puebla, Mexico-Toluca, Cuernavaca-Acapulco,
  * Mexico-Cuernavaca. Es un promedio nacional, no un dato exacto por
- * ruta). Editable sin tocar el script cuando cambien.
+ * ruta), y el token de la API de Ruteo de INEGI (SAKBE) que se usa para
+ * consultar el costo de caseta en vivo de cualquier ruta del pais antes
+ * de caer en ese estimado por km. Editable sin tocar el script cuando
+ * cambien.
  */
 function setupConfig_() {
   var ss = SpreadsheetApp.getActive();
@@ -112,7 +115,8 @@ function setupConfig_() {
     ['Fiscal Quincenal', 5190.6],
     ['Margen Piso', 0.2],
     ['Margen Objetivo', 0.3],
-    ['Costo Casetas Estimado ($/km)', 4.0]
+    ['Costo Casetas Estimado ($/km)', 4.0],
+    ['Token INEGI (API Ruteo SAKBE)', 'kqvCNH1V-keUF-rSVa-O1tf-gdqFN6DynMNN']
   ];
   sheet.getRange(1, 1, datos.length, 2).setValues(datos);
   sheet.getRange(1, 1, datos.length, 1).setFontWeight('bold');
@@ -136,7 +140,7 @@ function setupCostosUnidad_() {
 
   var headers = [
     'Tipo de Unidad', 'Renta Mensual', 'Costo Diario', 'Mantenimiento Mensual', 'Mantenimiento Diario',
-    'Rendimiento (km/L)', 'Tipo de Combustible', 'Costo Gasolina por KM'
+    'Rendimiento (km/L)', 'Tipo de Combustible', 'Costo Gasolina por KM', 'Codigo Vehiculo INEGI'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
@@ -145,6 +149,14 @@ function setupCostosUnidad_() {
   var combustibleRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Diesel', 'Gasolina'], true).setAllowInvalid(false).build();
   sheet.getRange(2, 7, FILAS_CATALOGO, 1).setDataValidation(combustibleRule);
+
+  // Codigo de vehiculo para la API de Ruteo de INEGI (ver Config, notas de
+  // Codigo Vehiculo INEGI): 0 Motocicleta, 1 Automovil, 2-4 Autobus de 2 a
+  // 4 ejes, 5-12 Camion de 2 a 9 ejes.
+  var codigoVehiculoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], true)
+    .setAllowInvalid(false).build();
+  sheet.getRange(2, 9, FILAS_CATALOGO, 1).setDataValidation(codigoVehiculoRule);
 
   var costoDiario = [];
   var mantenimientoDiario = [];
@@ -166,16 +178,17 @@ function setupCostosUnidad_() {
   // Renta Mensual: datos reales de Vanessa (Mantenimiento/Rendimiento/
   // Combustible siguen siendo de ejemplo hasta confirmar).
   var ejemplo = [
-    ['Auto', 8000, 4000, 12.0, 'Gasolina'],
-    ['Small Van - 1 tn', 15000, 5500, 8.0, 'Gasolina'],
-    ['Large Van - 1.5 tn', 32000, 8000, 6.0, 'Diesel'],
-    ['3.5 T caja seca', 48250, 10000, 4.5, 'Diesel']
+    ['Auto', 8000, 4000, 12.0, 'Gasolina', 1],
+    ['Small Van - 1 tn', 15000, 5500, 8.0, 'Gasolina', 5],
+    ['Large Van - 1.5 tn', 32000, 8000, 6.0, 'Diesel', 5],
+    ['3.5 T caja seca', 48250, 10000, 4.5, 'Diesel', 5]
   ];
   sheet.getRange(2, 1, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[0]]; }));
   sheet.getRange(2, 2, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[1]]; }));
   sheet.getRange(2, 4, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[2]]; }));
   sheet.getRange(2, 6, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[3]]; }));
   sheet.getRange(2, 7, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[4]]; }));
+  sheet.getRange(2, 9, ejemplo.length, 1).setValues(ejemplo.map(function(f) { return [f[5]]; }));
 
   sheet.getRange(2, 2, FILAS_CATALOGO, 4).setNumberFormat('$#,##0.00');
   sheet.getRange(2, 6, FILAS_CATALOGO, 1).setNumberFormat('0.00');
