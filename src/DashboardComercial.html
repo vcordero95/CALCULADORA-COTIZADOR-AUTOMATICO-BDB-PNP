@@ -98,7 +98,7 @@
       font-size: 12px;
     }
     #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
-    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad { display: none; }
+    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad, #campo-estacion-ruta-existente { display: none; }
   </style>
 </head>
 <body>
@@ -212,8 +212,11 @@
         <label for="clienteExistente">Cliente</label>
         <select id="clienteExistente" required></select>
 
+        <label for="tipoServicioExistente">Tipo de Servicio</label>
+        <select id="tipoServicioExistente" required></select>
+
         <div id="campo-meli-existente">
-          <p class="ayuda">Para la tarifa exacta de ruta dedicada MELI, agrega estos datos (opcional; sin ellos solo se muestra la lista general).</p>
+          <p class="ayuda">Tarifa estandarizada MELI por Nivel de la Estación + Tipo de Unidad + Km.</p>
           <div class="fila-doble">
             <div>
               <label for="estacionMeliExistente">Estación MELI</label>
@@ -226,6 +229,11 @@
           </div>
           <label for="kmExistente">Kilómetros</label>
           <input type="number" id="kmExistente" min="0" step="0.1">
+        </div>
+
+        <div id="campo-estacion-ruta-existente">
+          <label for="estacionRutaExistente">Estación / Ruta <span class="ayuda">(ej. SCQ1, Tapalpa, NACIONAL)</span></label>
+          <input type="text" id="estacionRutaExistente" placeholder="Escribe la estación o ruta exacta">
         </div>
 
         <button type="submit" id="btn-buscar">Buscar tarifa</button>
@@ -363,9 +371,25 @@
       }
     }
 
+    var todosTiposServicioExistente = [];
+    var tiposServicioGridNivel = [];
+
+    function poblarTipoServicioParaCliente_() {
+      var cliente = document.getElementById('clienteExistente').value;
+      var opciones = todosTiposServicioExistente.filter(function (t) {
+        return cliente === 'Mercado Libre' || tiposServicioGridNivel.indexOf(t) === -1;
+      });
+      poblarOpciones(document.getElementById('tipoServicioExistente'), opciones);
+    }
+
     function actualizarVisibilidadExistente() {
       var cliente = document.getElementById('clienteExistente').value;
-      document.getElementById('campo-meli-existente').style.display = cliente === 'Mercado Libre' ? 'block' : 'none';
+      var tipoServicio = document.getElementById('tipoServicioExistente').value;
+      var esGridNivel = cliente === 'Mercado Libre' && tiposServicioGridNivel.indexOf(tipoServicio) !== -1;
+
+      document.getElementById('campo-meli-existente').style.display = esGridNivel ? 'block' : 'none';
+      document.getElementById('campo-estacion-ruta-existente').style.display = (!esGridNivel && tipoServicio) ? 'block' : 'none';
+      document.getElementById('estacionRutaExistente').required = !esGridNivel && !!tipoServicio;
     }
 
     function cargarCatalogos() {
@@ -387,6 +411,10 @@
           poblarOpciones(document.getElementById('tipoUnidadExistente'), catalogos.unidades);
 
           modalidadesConPuntoAB = catalogos.modalidadesConPuntoAB;
+          todosTiposServicioExistente = catalogos.tiposServicioExistente;
+          tiposServicioGridNivel = catalogos.tiposServicioGridNivel;
+          poblarTipoServicioParaCliente_();
+
           actualizarVisibilidadCampos();
           actualizarVisibilidadExistente();
         })
@@ -398,7 +426,11 @@
     document.getElementById('modalidad').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('cliente').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('tipoCobro').addEventListener('change', actualizarVisibilidadCampos);
-    document.getElementById('clienteExistente').addEventListener('change', actualizarVisibilidadExistente);
+    document.getElementById('clienteExistente').addEventListener('change', function () {
+      poblarTipoServicioParaCliente_();
+      actualizarVisibilidadExistente();
+    });
+    document.getElementById('tipoServicioExistente').addEventListener('change', actualizarVisibilidadExistente);
 
     function mostrarError(error) {
       document.getElementById('seccion-resultado').style.display = 'none';
@@ -555,9 +587,11 @@
       var cliente = document.getElementById('clienteExistente').value;
       var datos = {
         cliente: cliente,
+        tipoServicio: document.getElementById('tipoServicioExistente').value,
         estacionMeli: document.getElementById('estacionMeliExistente').value,
         tipoUnidad: document.getElementById('tipoUnidadExistente').value,
-        km: Number(document.getElementById('kmExistente').value) || ''
+        km: Number(document.getElementById('kmExistente').value) || '',
+        estacionRuta: document.getElementById('estacionRutaExistente').value.trim()
       };
 
       document.getElementById('btn-buscar').disabled = true;

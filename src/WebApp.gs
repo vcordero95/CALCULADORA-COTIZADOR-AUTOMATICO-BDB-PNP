@@ -62,6 +62,8 @@ function obtenerCatalogosComercial() {
     frecuencias: FRECUENCIAS,
     tiposCobro: TIPOS_COBRO,
     periodosCantidad: PERIODOS_CANTIDAD,
+    tiposServicioExistente: TIPOS_SERVICIO_EXISTENTE,
+    tiposServicioGridNivel: TIPOS_SERVICIO_GRID_NIVEL,
     clientes: clientes,
     estacionesMeli: estacionesMeli
   };
@@ -183,10 +185,12 @@ function calcularSolicitudWeb(datos) {
 }
 
 /**
- * Busca una tarifa YA EXISTENTE para un Cliente, sin pasar por el motor
- * de costos: solo consulta lo que ya esta capturado en Tarifas Vigentes
- * (y, si Cliente es Mercado Libre y se dan Estacion + Tipo de Unidad +
- * km, la tarifa exacta de ruta dedicada en MELI Tarifas). Es el modo
+ * Busca una tarifa YA EXISTENTE para un Cliente + Tipo de Servicio, sin
+ * pasar por el motor de costos. "Last Mile" y "XPT" resuelven con el
+ * grid de Nivel + Vehiculo + Km (Estacion MELI), igual que en "Tarifa
+ * Nueva"; el resto de Tipos de Servicio filtran la hoja Tarifas Vigentes
+ * por esa modalidad y, si se captura, por Estacion/Ruta, para regresar
+ * solo la tarifa pedida (no todo el tarifario del cliente). Es el modo
  * "Tarifa existente" del dashboard de Comercial.
  */
 function buscarTarifaExistenteWeb(datos) {
@@ -194,11 +198,13 @@ function buscarTarifaExistenteWeb(datos) {
     var referenciasVigentes = [];
     var tarifaMeli = null;
 
-    if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
-      referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
-
-      if (datos.cliente === 'Mercado Libre' && datos.estacionMeli && datos.tipoUnidad && datos.km) {
-        tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+    if (datos.cliente && datos.cliente !== 'Nuevo Cliente' && datos.tipoServicio) {
+      if (datos.cliente === 'Mercado Libre' && TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1) {
+        if (datos.estacionMeli && datos.tipoUnidad && datos.km) {
+          tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+        }
+      } else {
+        referenciasVigentes = buscarTarifasVigentesFiltrado_(datos.cliente, datos.tipoServicio, datos.estacionRuta);
       }
     }
 

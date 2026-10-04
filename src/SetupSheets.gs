@@ -57,6 +57,17 @@ var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
 var PERIODOS_CANTIDAD = ['Por Día', 'Por Semana'];
 
 /**
+ * Tipo de Servicio para la busqueda de "Tarifa existente" en Tarifas
+ * Vigentes. "Last Mile" y "XPT" son el mismo calculo (grid de Nivel +
+ * Vehiculo + Km de MELI) pero se muestran como dos servicios separados
+ * porque para el negocio son ofertas distintas; el resto filtra las
+ * filas reales de Tarifas Vigentes por esa modalidad/tipo de servicio y
+ * la Estacion/Ruta capturada, para no mostrar toda la lista del cliente.
+ */
+var TIPOS_SERVICIO_EXISTENTE = ['Last Mile', 'XPT', 'Dedicada', 'Spot', 'Service Partner', 'Line Haul', 'Media Milla', 'Helper'];
+var TIPOS_SERVICIO_GRID_NIVEL = ['Last Mile', 'XPT'];
+
+/**
  * Crea (o reinicia) todas las hojas del cotizador. Se corre una vez al
  * preparar el spreadsheet, o cuando se quiera regresar a la estructura
  * base.

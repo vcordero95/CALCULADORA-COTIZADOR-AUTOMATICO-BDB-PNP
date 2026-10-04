@@ -51,10 +51,18 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
 
     Los resultados calculados (no las búsquedas) se guardan en la hoja
     **Solicitudes**.
-  - **Tarifa existente** (buscar en el tarifario): solo elige Cliente (y,
-    para Mercado Libre, opcionalmente Estación + Tipo de Unidad + km) y
-    ve directo lo que ya está registrado en `Tarifas Vigentes` / `MELI
-    Tarifas`, sin recalcular nada.
+  - **Tarifa existente** (buscar en el tarifario): elige Cliente y
+    **Tipo de Servicio** (Last Mile, XPT, Dedicada, Spot, Service
+    Partner, Line Haul, Media Milla, Helper — "Last Mile" y "XPT" solo
+    aparecen para Mercado Libre). Si el Tipo de Servicio es Last Mile o
+    XPT, captura Estación + Tipo de Unidad + km y se resuelve con el
+    grid de Nivel de `MELI Tarifas` (son el mismo cálculo, separados
+    porque para el negocio son dos servicios distintos). Para el resto,
+    captura **Estación / Ruta** (texto libre, ej. "SCQ1", "Tapalpa",
+    "NACIONAL") y se busca en `Tarifas Vigentes` filtrando por esa
+    modalidad y esa estación/ruta — regresa solo la tarifa pedida, no
+    todo el tarifario del cliente. Nada de esto recalcula: solo busca lo
+    que ya está registrado.
 
   Ambos modos comparten el dashboard por default (sin `?vista=`).
 
