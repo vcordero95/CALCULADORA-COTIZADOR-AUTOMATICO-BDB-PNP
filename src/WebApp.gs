@@ -142,33 +142,44 @@ function siguienteFilaLibreCotizador_(sheet) {
  *
  * En todos los casos se agregan, como referencia (no como el resultado
  * en si), las tarifas vigentes del Cliente elegido.
+ *
+ * Atrapa cualquier error y lo regresa como { error: mensaje } en vez de
+ * dejarlo "throw": Safari tiene un bug conocido con google.script.run
+ * donde un error lanzado del lado del servidor no siempre llega al
+ * withFailureHandler() del dashboard, y el boton se queda en
+ * "Calculando..." sin mostrar nada. Regresando el error como dato
+ * normal, el dashboard lo puede mostrar sin depender de ese mecanismo.
  */
 function calcularSolicitudWeb(datos) {
-  if (datos.modalidad === 'XPT') {
-    if (datos.cliente !== 'Mercado Libre') {
-      throw new Error('XPT solo aplica para Mercado Libre.');
+  try {
+    if (datos.modalidad === 'XPT') {
+      if (datos.cliente !== 'Mercado Libre') {
+        throw new Error('XPT solo aplica para Mercado Libre.');
+      }
+      if (!datos.estacionMeli) {
+        throw new Error('Selecciona la Estacion MELI para buscar la tarifa XPT.');
+      }
+      return {
+        esBusquedaTarifa: true,
+        referenciasVigentes: [],
+        tarifaMeli: buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km)
+      };
     }
-    if (!datos.estacionMeli) {
-      throw new Error('Selecciona la Estacion MELI para buscar la tarifa XPT.');
-    }
-    return {
-      esBusquedaTarifa: true,
-      referenciasVigentes: [],
-      tarifaMeli: buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km)
-    };
+
+    var resultado = SOLICITAR_TARIFA(
+      datos.alcance, datos.modalidad, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
+      datos.tipoCobro, datos.cantidad, datos.periodoCantidad, !!datos.requiereAuxiliar
+    );
+
+    resultado.esBusquedaTarifa = false;
+    resultado.referenciasVigentes = (datos.cliente && datos.cliente !== 'Nuevo Cliente')
+      ? buscarTarifasVigentesPorCliente_(datos.cliente) : [];
+    resultado.tarifaMeli = null;
+
+    return resultado;
+  } catch (e) {
+    return { error: e.message || String(e) };
   }
-
-  var resultado = SOLICITAR_TARIFA(
-    datos.alcance, datos.modalidad, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
-    datos.tipoCobro, datos.cantidad, datos.periodoCantidad, !!datos.requiereAuxiliar
-  );
-
-  resultado.esBusquedaTarifa = false;
-  resultado.referenciasVigentes = (datos.cliente && datos.cliente !== 'Nuevo Cliente')
-    ? buscarTarifasVigentesPorCliente_(datos.cliente) : [];
-  resultado.tarifaMeli = null;
-
-  return resultado;
 }
 
 /**
@@ -179,18 +190,22 @@ function calcularSolicitudWeb(datos) {
  * "Tarifa existente" del dashboard de Comercial.
  */
 function buscarTarifaExistenteWeb(datos) {
-  var referenciasVigentes = [];
-  var tarifaMeli = null;
+  try {
+    var referenciasVigentes = [];
+    var tarifaMeli = null;
 
-  if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
-    referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
+    if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
+      referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
 
-    if (datos.cliente === 'Mercado Libre' && datos.estacionMeli && datos.tipoUnidad && datos.km) {
-      tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+      if (datos.cliente === 'Mercado Libre' && datos.estacionMeli && datos.tipoUnidad && datos.km) {
+        tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+      }
     }
-  }
 
-  return { referenciasVigentes: referenciasVigentes, tarifaMeli: tarifaMeli };
+    return { referenciasVigentes: referenciasVigentes, tarifaMeli: tarifaMeli };
+  } catch (e) {
+    return { error: e.message || String(e) };
+  }
 }
 
 /**
@@ -198,8 +213,20 @@ function buscarTarifaExistenteWeb(datos) {
  * nuevo en la hoja Solicitudes, con los valores ya resueltos. Para
  * Service Partner / XPT (busqueda de tarifa, sin motor de costos) los
  * campos de costo quedan en blanco: no hay nada que inventar ahi.
+ *
+ * Regresa { ok: true } o { error: mensaje } en vez de "throw" / regresar
+ * true a secas, por la misma razon que calcularSolicitudWeb: el bug de
+ * Safari con google.script.run no entrega bien los errores lanzados.
  */
 function guardarSolicitudWeb(datos, resultado) {
+  try {
+    return guardarSolicitudWeb_(datos, resultado);
+  } catch (e) {
+    return { error: e.message || String(e) };
+  }
+}
+
+function guardarSolicitudWeb_(datos, resultado) {
   var sheet = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
   if (!sheet) {
     throw new Error('No existe la hoja "Solicitudes". Ejecuta Cotizador BDB > Inicializar hojas.');
@@ -228,7 +255,7 @@ function guardarSolicitudWeb(datos, resultado) {
     agregarCasetaAprendida_(datos.puntoA, datos.puntoB, resultado.costoCasetas);
   }
 
-  return true;
+  return { ok: true };
 }
 
 /**

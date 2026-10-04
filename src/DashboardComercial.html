@@ -448,6 +448,13 @@
     }
 
     function mostrarResultado(resultado) {
+      if (!resultado || resultado.error) {
+        document.getElementById('btn-calcular').disabled = false;
+        document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
+        mostrarError({ message: (resultado && resultado.error) || 'No se recibió respuesta del servidor. Intenta de nuevo.' });
+        return;
+      }
+
       document.getElementById('seccion-error').style.display = 'none';
       document.getElementById('mensaje-guardado').style.display = 'none';
 
@@ -496,11 +503,17 @@
     }
 
     function mostrarResultadoExistente(resultado, cliente) {
+      document.getElementById('btn-buscar').disabled = false;
+      document.getElementById('btn-buscar').textContent = 'Buscar tarifa';
+
+      if (!resultado || resultado.error) {
+        mostrarError({ message: (resultado && resultado.error) || 'No se recibió respuesta del servidor. Intenta de nuevo.' });
+        return;
+      }
+
       document.getElementById('seccion-error').style.display = 'none';
       document.getElementById('seccion-resultado').style.display = 'none';
       mostrarReferenciasYMeli(resultado.referenciasVigentes, resultado.tarifaMeli, cliente);
-      document.getElementById('btn-buscar').disabled = false;
-      document.getElementById('btn-buscar').textContent = 'Buscar tarifa';
     }
 
     document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
@@ -566,9 +579,15 @@
       boton.disabled = true;
       boton.textContent = 'Guardando...';
       google.script.run
-        .withSuccessHandler(function () {
+        .withSuccessHandler(function (respuesta) {
           boton.disabled = false;
           boton.textContent = 'Guardar solicitud';
+
+          if (!respuesta || respuesta.error) {
+            mostrarError({ message: (respuesta && respuesta.error) || 'No se recibió respuesta del servidor. Intenta de nuevo.' });
+            return;
+          }
+
           var resultado = ultimoCalculo.resultado;
           var mensaje = 'Solicitud guardada en la hoja Solicitudes.';
           if (resultado.casetasEstimadas && ultimoCalculo.datos.puntoA && ultimoCalculo.datos.puntoB) {
