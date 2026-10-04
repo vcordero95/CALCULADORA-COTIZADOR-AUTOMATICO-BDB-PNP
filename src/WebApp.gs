@@ -185,26 +185,34 @@ function calcularSolicitudWeb(datos) {
 }
 
 /**
- * Busca una tarifa YA EXISTENTE para un Cliente + Tipo de Servicio, sin
- * pasar por el motor de costos. "Last Mile" y "XPT" resuelven con el
- * grid de Nivel + Vehiculo + Km (Estacion MELI), igual que en "Tarifa
- * Nueva"; el resto de Tipos de Servicio filtran la hoja Tarifas Vigentes
- * por esa modalidad y, si se captura, por Estacion/Ruta, para regresar
- * solo la tarifa pedida (no todo el tarifario del cliente). Es el modo
- * "Tarifa existente" del dashboard de Comercial.
+ * Busca una tarifa YA EXISTENTE para un Cliente, sin pasar por el motor
+ * de costos. Mercado Libre es el unico cliente con muchas tarifas
+ * mezcladas (distintas estaciones y modalidades), asi que ahi se pide
+ * ademas el Tipo de Servicio: "Last Mile" y "XPT" resuelven con el grid
+ * de Nivel + Vehiculo + Km (Estacion MELI), igual que en "Tarifa
+ * Nueva"; el resto filtra la hoja Tarifas Vigentes por esa modalidad y,
+ * si se captura, por Estacion/Ruta, para regresar solo la tarifa
+ * pedida. Para cualquier otro Cliente se mantiene el comportamiento
+ * simple de antes: se muestra directo todo lo que tiene registrado, sin
+ * pedir Tipo de Servicio (no tienen tantas filas como para necesitarlo).
+ * Es el modo "Tarifa existente" del dashboard de Comercial.
  */
 function buscarTarifaExistenteWeb(datos) {
   try {
     var referenciasVigentes = [];
     var tarifaMeli = null;
 
-    if (datos.cliente && datos.cliente !== 'Nuevo Cliente' && datos.tipoServicio) {
-      if (datos.cliente === 'Mercado Libre' && TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1) {
-        if (datos.estacionMeli && datos.tipoUnidad && datos.km) {
-          tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+    if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
+      if (datos.cliente === 'Mercado Libre' && datos.tipoServicio) {
+        if (TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1) {
+          if (datos.estacionMeli && datos.tipoUnidad && datos.km) {
+            tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
+          }
+        } else {
+          referenciasVigentes = buscarTarifasVigentesFiltrado_(datos.cliente, datos.tipoServicio, datos.estacionRuta);
         }
-      } else {
-        referenciasVigentes = buscarTarifasVigentesFiltrado_(datos.cliente, datos.tipoServicio, datos.estacionRuta);
+      } else if (datos.cliente !== 'Mercado Libre') {
+        referenciasVigentes = buscarTarifasVigentesPorCliente_(datos.cliente);
       }
     }
 

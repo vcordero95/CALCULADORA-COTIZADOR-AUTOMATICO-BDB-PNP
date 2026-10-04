@@ -98,7 +98,7 @@
       font-size: 12px;
     }
     #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
-    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad, #campo-estacion-ruta-existente { display: none; }
+    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad, #campo-estacion-ruta-existente, #campo-tipo-servicio-existente { display: none; }
   </style>
 </head>
 <body>
@@ -212,8 +212,10 @@
         <label for="clienteExistente">Cliente</label>
         <select id="clienteExistente" required></select>
 
-        <label for="tipoServicioExistente">Tipo de Servicio</label>
-        <select id="tipoServicioExistente" required></select>
+        <div id="campo-tipo-servicio-existente">
+          <label for="tipoServicioExistente">Tipo de Servicio</label>
+          <select id="tipoServicioExistente"></select>
+        </div>
 
         <div id="campo-meli-existente">
           <p class="ayuda">Tarifa estandarizada MELI por Nivel de la Estación + Tipo de Unidad + Km.</p>
@@ -384,12 +386,21 @@
 
     function actualizarVisibilidadExistente() {
       var cliente = document.getElementById('clienteExistente').value;
-      var tipoServicio = document.getElementById('tipoServicioExistente').value;
-      var esGridNivel = cliente === 'Mercado Libre' && tiposServicioGridNivel.indexOf(tipoServicio) !== -1;
+      var esMeli = cliente === 'Mercado Libre';
+      var tipoServicioSelect = document.getElementById('tipoServicioExistente');
 
+      document.getElementById('campo-tipo-servicio-existente').style.display = esMeli ? 'block' : 'none';
+      tipoServicioSelect.required = esMeli;
+
+      var tipoServicio = esMeli ? tipoServicioSelect.value : '';
+      var esGridNivel = esMeli && tiposServicioGridNivel.indexOf(tipoServicio) !== -1;
+
+      // Para clientes que no son Mercado Libre se mantiene el comportamiento
+      // simple de antes: solo Cliente, se ve directo todo lo registrado
+      // (no hay tantas filas como para necesitar filtrar por Estacion/Ruta).
       document.getElementById('campo-meli-existente').style.display = esGridNivel ? 'block' : 'none';
-      document.getElementById('campo-estacion-ruta-existente').style.display = (!esGridNivel && tipoServicio) ? 'block' : 'none';
-      document.getElementById('estacionRutaExistente').required = !esGridNivel && !!tipoServicio;
+      document.getElementById('campo-estacion-ruta-existente').style.display = (esMeli && !esGridNivel) ? 'block' : 'none';
+      document.getElementById('estacionRutaExistente').required = esMeli && !esGridNivel;
     }
 
     function cargarCatalogos() {
