@@ -119,6 +119,79 @@ function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
   }
 }
 
+/** Busca un tipo de combustible (ej. "Diésel", "Regular") en la lista que regresa la API de INEGI. Regresa null si no esta. */
+function buscarCombustibleInegiPorTipo_(lista, tiposAceptados) {
+  for (var i = 0; i < lista.length; i++) {
+    if (tiposAceptados.indexOf(lista[i].tipo) !== -1) {
+      return Number(lista[i].costo) || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Jala de la API de INEGI (funcion "combustible") el precio promedio
+ * nacional de Diesel y Gasolina (que INEGI actualiza el primer dia
+ * habil de cada semana) y lo escribe en Config!B1 / Config!B2. No
+ * truena si INEGI falla (token invalido, sin red, etc.): en ese caso
+ * se queda el ultimo precio capturado. Pensada para correr sola via un
+ * trigger semanal (ver activarActualizacionCombustibleInegi_).
+ */
+function actualizarPreciosCombustibleInegi_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_CONFIG);
+  if (!hoja) return;
+  var token = obtenerTokenInegi_();
+  if (!token) return;
+
+  try {
+    var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/combustible', {
+      method: 'post',
+      payload: { type: 'json', key: token },
+      muteHttpExceptions: true
+    });
+    if (respuesta.getResponseCode() !== 200) return;
+    var datos = JSON.parse(respuesta.getContentText());
+    if (!datos.response || !datos.response.success || !datos.data) return;
+
+    var diesel = buscarCombustibleInegiPorTipo_(datos.data, ['Diésel', 'Diesel']);
+    var gasolina = buscarCombustibleInegiPorTipo_(datos.data, ['Regular', 'Magna']);
+
+    if (diesel != null) hoja.getRange(1, 2).setValue(diesel);
+    if (gasolina != null) hoja.getRange(2, 2).setValue(gasolina);
+  } catch (e) {
+    // No interrumpir: si INEGI falla, se queda con el ultimo precio capturado.
+  }
+}
+
+/**
+ * Activa (una sola vez) el disparador semanal que mantiene actualizados
+ * los precios de Diesel/Gasolina en Config con el dato de INEGI. Si ya
+ * esta activo, no lo duplica. Se corre tambien de inmediato al activar,
+ * para no esperar hasta el proximo lunes.
+ */
+function activarActualizacionCombustibleInegi_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'actualizarPreciosCombustibleInegi_') {
+      SpreadsheetApp.getUi().alert('La actualizacion automatica semanal de combustibles ya esta activa.');
+      return;
+    }
+  }
+
+  ScriptApp.newTrigger('actualizarPreciosCombustibleInegi_')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(6)
+    .create();
+
+  actualizarPreciosCombustibleInegi_();
+
+  SpreadsheetApp.getUi().alert(
+    'Listo. Los precios de Diesel y Gasolina en Config se van a actualizar solos cada lunes con el dato de INEGI ' +
+    '(ya se actualizaron ahora mismo con el precio mas reciente).'
+  );
+}
+
 /**
  * Resuelve el costo de casetas de una ruta segun la Modalidad (no el
  * Alcance): "Line Haul" y "Media Milla" son de Punto A a Punto B y si

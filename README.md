@@ -157,9 +157,16 @@ Catálogos (los mantiene Vanessa):
   cada **Alcance** (Local/Foráneo). Es independiente de la Modalidad:
   cualquier Modalidad (Dedicada, Line Haul, Media Milla, etc.) puede ser
   Local o Foránea, y el chofer se asigna solo por Alcance.
-- **Config** — precios de Diesel/Gasolina ($/L), la parte Fiscal por
-  periodo (Semanal/Quincenal), la política de margen del dashboard de
-  Comercial (**Margen Piso 20%** / **Margen Objetivo 30%**), el
+- **Config** — precios de Diesel/Gasolina ($/L) — se mantienen solos:
+  con el menú **Cotizador BDB → Activar actualización semanal de
+  precios de combustible (INEGI)** se crea un disparador que cada lunes
+  jala el precio promedio nacional más reciente de la API de INEGI
+  (la misma que resuelve casetas) y lo escribe aquí, para no quedarse
+  con un precio capturado una sola vez y desactualizado; sigue siendo
+  editable a mano entre una actualización y otra. También la parte
+  Fiscal por periodo (Semanal/Quincenal), la política de margen del
+  dashboard de Comercial (**Margen Piso 20%** / **Margen Objetivo
+  30%**), el
   **Costo Casetas Estimado ($/km)** — ~$4.00/km, promedio nacional de
   camión de 2 ejes calculado con cobertura de prensa 2026 sobre tarifas
   CAPUFE en México-Querétaro, México-Puebla, México-Toluca,
