@@ -122,23 +122,19 @@ function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
 /**
  * Resuelve el costo de casetas de una ruta segun la Modalidad (no el
  * Alcance): "Line Haul" y "Media Milla" son de Punto A a Punto B y si
- * llevan caseta; el resto no. Cuando aplica, se busca primero el costo
- * exacto en la hoja Casetas; si esa ruta especifica todavia no esta
- * capturada, se consulta en vivo la API de Ruteo de INEGI (variando
- * segun el Codigo de Vehiculo INEGI del Tipo de Unidad elegido); y solo
- * si INEGI tampoco puede resolverla (lugar no encontrado, error de red),
- * se estima con kilometros x Costo Casetas Estimado ($/km) de Config,
- * para poder cotizar cualquier ruta del pais sin esperar a que el
- * catalogo este completo.
+ * llevan caseta; el resto no. Cuando aplica, se consulta primero en
+ * vivo la API de Ruteo de INEGI (variando segun el Codigo de Vehiculo
+ * INEGI del Tipo de Unidad elegido), para siempre cotizar con el dato
+ * mas actualizado posible; si INEGI no puede resolverla (lugar no
+ * encontrado, error de red), se cae al costo exacto capturado en la
+ * hoja Casetas (CAPUFE u otra fuente oficial); y solo si tampoco esta
+ * ahi, se estima con kilometros x Costo Casetas Estimado ($/km) de
+ * Config, para poder cotizar cualquier ruta del pais sin bloquear nunca
+ * la cotizacion.
  */
 function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
   if (MODALIDADES_CON_CASETA.indexOf(modalidad) === -1) {
     return { costo: 0, estimado: false, fuente: 'No aplica para Modalidad "' + modalidad + '"' };
-  }
-
-  var filaExacta = (puntoA && puntoB) ? buscarCasetasExacto_(puntoA, puntoB) : null;
-  if (filaExacta) {
-    return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: filaExacta[3] || '' };
   }
 
   var resultadoInegi = (puntoA && puntoB) ? consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) : null;
@@ -146,8 +142,13 @@ function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
     return {
       costo: resultadoInegi.costo,
       estimado: true,
-      fuente: 'Consultado en vivo a la API de Ruteo de INEGI (SAKBE), ' + resultadoInegi.km + ' km — validar/ajustar con el costo real de caseta.'
+      fuente: 'API de Ruteo de INEGI (SAKBE), en vivo — ' + resultadoInegi.km + ' km'
     };
+  }
+
+  var filaExacta = (puntoA && puntoB) ? buscarCasetasExacto_(puntoA, puntoB) : null;
+  if (filaExacta) {
+    return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: (filaExacta[3] || '') + ' (INEGI no respondio, se uso el catalogo Casetas)' };
   }
 
   var costoPorKm = obtenerCostoCasetasPorKm_();
@@ -155,7 +156,7 @@ function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
   return {
     costo: costoPorKm * kilometros,
     estimado: true,
-    fuente: 'Estimado a ' + costoPorKm + ' $/km (ruta no esta en el catalogo Casetas ni la pudo resolver INEGI)'
+    fuente: 'Estimado a ' + costoPorKm + ' $/km (INEGI no respondio y la ruta no esta en el catalogo Casetas)'
   };
 }
 

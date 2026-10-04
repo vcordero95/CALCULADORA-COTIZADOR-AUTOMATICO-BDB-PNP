@@ -130,29 +130,29 @@ Catálogos (los mantiene Vanessa):
   consecutivos (ej. CDMX-Acapulco = México-Cuernavaca + Cuernavaca-
   Acapulco); vale la pena confirmar que la ruta real siga ese mismo
   camino. CDMX-Toluca no es red CAPUFE (va por un tramo concesionado
-  aparte) y se dejó el dato de prensa. Esto sigue sin ser exhaustivo, pero
-  ya no depende solo de este catálogo: si Comercial cotiza una ruta que
-  todavía no está aquí, el sistema consulta **en vivo la API de Ruteo de
-  INEGI (SAKBÉ)** con el Código Vehículo INEGI del Tipo de Unidad elegido
-  (así que Auto y Camión dan un costo de caseta distinto para la misma
-  ruta, como en la realidad), y solo si INEGI tampoco puede resolverla
-  (lugar no encontrado, falla de red) cae al estimado por kilómetros ×
-  Costo Casetas Estimado ($/km) de `Config` — para poder cotizar
-  cualquier ruta del país desde el día uno, con tres niveles de
-  respaldo: catálogo exacto → INEGI en vivo → estimado por km.
+  aparte) y se dejó el dato de prensa. Este catálogo ya **no es la
+  primera fuente que se consulta**: para cotizar siempre con el dato más
+  actualizado posible, el sistema primero consulta **en vivo la API de
+  Ruteo de INEGI (SAKBÉ)** con el Código Vehículo INEGI del Tipo de
+  Unidad elegido (así que Auto y Camión dan un costo de caseta distinto
+  para la misma ruta, como en la realidad). Solo si INEGI no puede
+  resolverla (lugar no encontrado, falla de red) se usa el costo exacto
+  de este catálogo, y si tampoco está aquí, se cae al estimado por
+  kilómetros × Costo Casetas Estimado ($/km) de `Config` — tres niveles
+  de respaldo: INEGI en vivo → catálogo exacto → estimado por km, para
+  nunca bloquear una cotización.
   El token de INEGI vive en `Config` (fila "Token INEGI (API Ruteo
   SAKBE)"), editable sin tocar el script. Nota: INEGI es una fuente
   confiable pero no perfecta — en pruebas coincidió exacto con CAPUFE en
   algunos corredores (ej. CDMX-Puebla) y se desvió en otros (ej. CDMX-
-  Querétaro, por la selección del punto de origen dentro de la ciudad),
-  así que las rutas frecuentes conviene seguir capturándolas a mano en
-  `Casetas` con el dato oficial.
+  Querétaro, por la selección del punto de origen dentro de la ciudad).
   **El catálogo se auto-completa solo**: cada vez que se guarda una
-  solicitud cuya caseta fue estimada (por km o por INEGI), esa ruta
+  solicitud cuya caseta no vino de un match exacto en este catálogo
+  (porque se resolvió con INEGI o con el estimado por km), esa ruta
   (Punto A, Punto B, costo, con nota de que viene de una solicitud
-  guardada) se agrega automáticamente a `Casetas`, así que la próxima vez
-  que pidan esa misma ruta ya no es un estimado. Vanessa puede después ir
-  ajustando esos valores aprendidos con el costo real de CAPUFE.
+  guardada) se agrega automáticamente a `Casetas` como respaldo para el
+  día en que INEGI no responda. Vanessa puede después ir ajustando esos
+  valores con el costo real de CAPUFE.
 - **Alcance-Puesto** — el Puesto Principal (y el Auxiliar) que aplica para
   cada **Alcance** (Local/Foráneo). Es independiente de la Modalidad:
   cualquier Modalidad (Dedicada, Line Haul, Media Milla, etc.) puede ser
@@ -163,10 +163,10 @@ Catálogos (los mantiene Vanessa):
   **Costo Casetas Estimado ($/km)** — ~$4.00/km, promedio nacional de
   camión de 2 ejes calculado con cobertura de prensa 2026 sobre tarifas
   CAPUFE en México-Querétaro, México-Puebla, México-Toluca,
-  Cuernavaca-Acapulco y México-Cuernavaca (último respaldo si ni el
-  catálogo `Casetas` ni la API de INEGI resuelven la ruta), y el
-  **Token INEGI (API Ruteo SAKBE)** usado para consultar casetas en vivo.
-  Editable sin tocar el script.
+  Cuernavaca-Acapulco y México-Cuernavaca (último respaldo si ni la API
+  de INEGI ni el catálogo `Casetas` resuelven la ruta), y el
+  **Token INEGI (API Ruteo SAKBE)** usado para consultar casetas en vivo
+  como primera fuente. Editable sin tocar el script.
 
 Referencia de tarifas de clientes (datos reales, cargados desde el
 tarifario de la empresa — solo dentro del Sheet, no en git):
@@ -205,7 +205,7 @@ Palet), además se calcula cada una entre la Cantidad capturada:
 
 - **¿Se capturan Punto A / Punto B?** ← lo decide la **Modalidad**: `Line Haul`, `Media Milla`, `Service Partner` y `XPT` sí (rutas de punto a punto); `Dedicada` y `Spot` no.
 - **Puesto Principal / Auxiliar** ← solo por **Alcance** (Local/Foráneo), buscado en `Alcance-Puesto`, sin importar la Modalidad. Si Comercial marca que la ruta necesita auxiliar, se suma también el Sueldo Mensual Total del Puesto Auxiliar de ese Alcance.
-- **Costo de Casetas** (solo Modalidad Line Haul/Media Milla) ← se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si esa ruta exacta no está capturada, se consulta en vivo la API de Ruteo de INEGI con el Código Vehículo INEGI del Tipo de Unidad elegido; si tampoco la resuelve, se estima con km × Costo Casetas Estimado de `Config` (se marca como "estimado" en el resultado y en la hoja Solicitudes, con la fuente exacta, para que Vanessa sepa qué rutas conviene capturar con dato real).
+- **Costo de Casetas** (solo Modalidad Line Haul/Media Milla) ← se consulta primero en vivo la API de Ruteo de INEGI con el Código Vehículo INEGI del Tipo de Unidad elegido; si INEGI no responde, se busca Punto A + Punto B (sin importar el orden) en `Casetas`; si tampoco está ahí, se estima con km × Costo Casetas Estimado de `Config` (la fuente exacta usada se marca en el resultado y en la hoja Solicitudes).
 - **Viajes al Mes** ← Frecuencia (ej. `7x7`, `5x7`): se toma el primer número (veces por semana) × 4.33.
 - **XPT** ← no pasa por nada de lo anterior: es búsqueda de tarifa estandarizada MELI (ver arriba), no cálculo de costo, sin importar si es Tarifa Nueva o Existente. **Service Partner** sí usa el motor de costo igual que Dedicada/Spot/Line Haul/Media Milla cuando es Tarifa Nueva (puede o no llevar Punto A/B según si también es Line Haul/Media Milla).
 

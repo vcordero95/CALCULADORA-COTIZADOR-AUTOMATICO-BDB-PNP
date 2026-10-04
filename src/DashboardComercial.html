@@ -463,7 +463,7 @@
       document.getElementById('r-puestoAuxiliar').textContent = resultado.puestoAuxiliar || '—';
       document.getElementById('r-costoCasetas').textContent = money(resultado.costoCasetas);
       document.getElementById('etiqueta-costoCasetas').textContent =
-        'Costo casetas' + (resultado.casetasEstimadas ? ' (estimado por km, agrega la ruta exacta a Casetas para precisión)' : ' (Punto A - Punto B)');
+        'Costo casetas (' + (resultado.casetasFuente || 'Punto A - Punto B') + ')';
       document.getElementById('r-viajesMes').textContent = Number(resultado.viajesMes).toFixed(1);
       document.getElementById('r-costoVariable').textContent = money(resultado.costoVariable);
       document.getElementById('r-costoFijoProrrateado').textContent = money(resultado.costoFijoProrrateado);
