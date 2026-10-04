@@ -46,12 +46,10 @@ function obtenerCatalogosComercial() {
   var unidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 1)
     .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
-  var clientesUnicos = {};
-  _TARIFAS_VIGENTES_DATA.forEach(function (fila) { clientesUnicos[fila[1]] = true; });
-  var clientes = Object.keys(clientesUnicos).sort();
+  var clientes = obtenerClientesTarifasVigentes_();
   clientes.push('Nuevo Cliente');
 
-  var estacionesMeli = _MELI_ESTACIONES_DATA.map(function (fila) { return fila[0]; });
+  var estacionesMeli = obtenerListaEstacionesMeli_();
 
   return {
     puntos: puntos,
