@@ -234,8 +234,8 @@
         </div>
 
         <div id="campo-estacion-ruta-existente">
-          <label for="estacionRutaExistente">Estación / Ruta <span class="ayuda">(ej. SCQ1, Tapalpa, NACIONAL)</span></label>
-          <input type="text" id="estacionRutaExistente" placeholder="Escribe la estación o ruta exacta">
+          <label for="estacionRutaExistente">Estación / Ruta</label>
+          <select id="estacionRutaExistente"></select>
         </div>
 
         <button type="submit" id="btn-buscar">Buscar tarifa</button>
@@ -320,6 +320,17 @@
       });
     }
 
+    /** Igual que poblarOpciones, pero para opciones {valor, etiqueta} (valor != texto mostrado). */
+    function poblarOpcionesValorEtiqueta(select, opciones) {
+      select.innerHTML = '';
+      opciones.forEach(function (opcion) {
+        var el = document.createElement('option');
+        el.value = opcion.valor;
+        el.textContent = opcion.etiqueta;
+        select.appendChild(el);
+      });
+    }
+
     function ocultarResultados() {
       document.getElementById('seccion-resultado').style.display = 'none';
       document.getElementById('seccion-vigentes').style.display = 'none';
@@ -398,9 +409,34 @@
       // Para clientes que no son Mercado Libre se mantiene el comportamiento
       // simple de antes: solo Cliente, se ve directo todo lo registrado
       // (no hay tantas filas como para necesitar filtrar por Estacion/Ruta).
+      var mostrarEstacionRuta = esMeli && !esGridNivel && !!tipoServicio;
       document.getElementById('campo-meli-existente').style.display = esGridNivel ? 'block' : 'none';
-      document.getElementById('campo-estacion-ruta-existente').style.display = (esMeli && !esGridNivel) ? 'block' : 'none';
-      document.getElementById('estacionRutaExistente').required = esMeli && !esGridNivel;
+      document.getElementById('campo-estacion-ruta-existente').style.display = mostrarEstacionRuta ? 'block' : 'none';
+      document.getElementById('estacionRutaExistente').required = mostrarEstacionRuta;
+
+      if (mostrarEstacionRuta) {
+        cargarOpcionesEstacionRuta_(cliente, tipoServicio);
+      } else {
+        document.getElementById('estacionRutaExistente').innerHTML = '';
+      }
+    }
+
+    /** Llena el desplegable de Estacion/Ruta con las opciones reales de ese Cliente + Tipo de Servicio. */
+    function cargarOpcionesEstacionRuta_(cliente, tipoServicio) {
+      var select = document.getElementById('estacionRutaExistente');
+      select.innerHTML = '<option value="">Cargando…</option>';
+      google.script.run
+        .withSuccessHandler(function (opciones) {
+          if (!opciones || !opciones.length) {
+            select.innerHTML = '<option value="">Sin estaciones/rutas registradas</option>';
+            return;
+          }
+          poblarOpcionesValorEtiqueta(select, opciones);
+        })
+        .withFailureHandler(function () {
+          select.innerHTML = '<option value="">No se pudo cargar</option>';
+        })
+        .obtenerOpcionesEstacionRutaWeb(cliente, tipoServicio);
     }
 
     function cargarCatalogos() {

@@ -223,6 +223,21 @@ function buscarTarifaExistenteWeb(datos) {
 }
 
 /**
+ * Opciones para el desplegable de Estacion/Ruta en "Tarifa existente"
+ * (solo Mercado Libre): una por cada fila de Tarifas Vigentes que
+ * coincide con el Cliente + Tipo de Servicio ya elegidos, para que
+ * Comercial elija de una lista real en vez de escribir texto libre.
+ */
+function obtenerOpcionesEstacionRutaWeb(cliente, tipoServicio) {
+  try {
+    if (cliente !== 'Mercado Libre' || !tipoServicio) return [];
+    return obtenerOpcionesEstacionRuta_(cliente, tipoServicio);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
  * Guarda la solicitud calculada (dashboard de Comercial) como un renglon
  * nuevo en la hoja Solicitudes, con los valores ya resueltos. Para
  * Service Partner / XPT (busqueda de tarifa, sin motor de costos) los
