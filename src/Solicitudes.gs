@@ -295,14 +295,17 @@ function obtenerMargenesPolitica_() {
  * El margen NO lo captura Comercial: se usa la politica fija de la
  * empresa (Margen Piso / Margen Objetivo en Config), y se regresan ambas
  * tarifas. Si tipoCobro no es "Por Ruta", ademas se regresa cada tarifa
- * entre la Cantidad (paquetes, paradas o palets) capturada.
+ * entre la Cantidad (paquetes, paradas o palets) capturada, convertida a
+ * cantidad por viaje: si Comercial la captura "Por Semana" se divide
+ * entre los viajes por semana de la Frecuencia; si la captura "Por Dia"
+ * se usa tal cual (un viaje = un dia, igual que asume la Frecuencia).
  *
  * No es una funcion de hoja de calculo (@customfunction): la llama
  * calcularSolicitudWeb() desde el dashboard de Comercial.
  *
  * @return {Object} Desglose completo de la solicitud.
  */
-function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, requiereAuxiliar) {
+function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, periodoCantidad, requiereAuxiliar) {
   var filaUnidad = buscarUnidadPorTipo_(tipoUnidad);
   if (!filaUnidad) {
     throw new Error('Tipo de unidad "' + tipoUnidad + '" no esta en la hoja "' + HOJA_COSTOS_UNIDAD + '".');
@@ -347,7 +350,8 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
     puestoAuxiliarUsado = puestoAuxiliar;
   }
 
-  var viajesMes = vecesPorSemana_(frecuencia) * 4.33;
+  var vecesSemana = vecesPorSemana_(frecuencia);
+  var viajesMes = vecesSemana * 4.33;
 
   var rentaMensual = Number(filaUnidad[1]) || 0;
   var mantenimientoMensual = Number(filaUnidad[3]) || 0;
@@ -367,10 +371,11 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   if (tipoCobro !== 'Por Ruta') {
     var cantidadNum = Number(cantidad) || 0;
     if (cantidadNum <= 0) {
-      throw new Error('Captura la Cantidad (paquetes/paradas/palets) para calcular la tarifa "' + tipoCobro + '".');
+      throw new Error('Captura la Cantidad para calcular la tarifa "' + tipoCobro + '".');
     }
-    tarifaPorUnidadPiso = tarifaPiso / cantidadNum;
-    tarifaPorUnidadObjetivo = tarifaObjetivo / cantidadNum;
+    var cantidadPorViaje = periodoCantidad === 'Por Semana' ? (cantidadNum / vecesSemana) : cantidadNum;
+    tarifaPorUnidadPiso = tarifaPiso / cantidadPorViaje;
+    tarifaPorUnidadObjetivo = tarifaObjetivo / cantidadPorViaje;
   }
 
   return {

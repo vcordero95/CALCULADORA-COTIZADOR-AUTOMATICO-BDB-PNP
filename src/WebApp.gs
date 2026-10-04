@@ -61,6 +61,7 @@ function obtenerCatalogosComercial() {
     modalidadesConPuntoAB: MODALIDADES_CON_PUNTO_A_B,
     frecuencias: FRECUENCIAS,
     tiposCobro: TIPOS_COBRO,
+    periodosCantidad: PERIODOS_CANTIDAD,
     clientes: clientes,
     estacionesMeli: estacionesMeli
   };
@@ -159,7 +160,7 @@ function calcularSolicitudWeb(datos) {
 
   var resultado = SOLICITAR_TARIFA(
     datos.alcance, datos.modalidad, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
-    datos.tipoCobro, datos.cantidad, !!datos.requiereAuxiliar
+    datos.tipoCobro, datos.cantidad, datos.periodoCantidad, !!datos.requiereAuxiliar
   );
 
   resultado.esBusquedaTarifa = false;
@@ -213,7 +214,7 @@ function guardarSolicitudWeb(datos, resultado) {
   sheet.getRange(fila, 1, 1, 34).setValues([[
     new Date(), clienteRegistrado, datos.rutaCliente || '', datos.alcance || '', datos.modalidad,
     datos.puntoA || '', datos.puntoB || '', datos.tipoUnidad,
-    datos.frecuencia || '', datos.volumen || '', Number(datos.km) || '', datos.tipoCobro || '', Number(datos.cantidad) || '',
+    datos.frecuencia || '', Number(datos.km) || '', datos.tipoCobro || '', datos.periodoCantidad || '', Number(datos.cantidad) || '',
     datos.requiereAuxiliar ? 'Si' : 'No', datos.estacionMeli || '',
     resultado.puestoPrincipal || '', resultado.puestoAuxiliar || '', resultado.costoCasetas || '',
     resultado.casetasEstimadas ? 'Si' : 'No', resultado.viajesMes || '',

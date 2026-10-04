@@ -54,6 +54,7 @@ var MODALIDADES_CON_PUNTO_A_B = ['Line Haul', 'Media Milla', 'Service Partner', 
 var MODALIDADES_CON_CASETA = ['Line Haul', 'Media Milla'];
 var FRECUENCIAS = ['7x7', '6x7', '5x7', '4x7', '3x7', '2x7', '1x7'];
 var TIPOS_COBRO = ['Por Ruta', 'Por Paquete', 'Por Parada', 'Por Palet'];
+var PERIODOS_CANTIDAD = ['Por Día', 'Por Semana'];
 
 /**
  * Crea (o reinicia) todas las hojas del cotizador. Se corre una vez al
@@ -248,6 +249,40 @@ function migrarCodigoVehiculoInegi_() {
     huboCambios
       ? 'Listo. Se agrego la columna "Codigo Vehiculo INEGI" en Costos Unidad y/o el Token INEGI en Config, sin tocar tus datos existentes.'
       : 'No habia nada que migrar: ya tienes la columna "Codigo Vehiculo INEGI" y el Token INEGI.'
+  );
+}
+
+/**
+ * Quita la columna "Volumen" (duplicaba lo que ya captura Cantidad) de
+ * la hoja Solicitudes y agrega "Periodo de Cantidad" (Por Dia/Por
+ * Semana) justo antes de Cantidad, SIN borrar las filas ya guardadas:
+ * solo mueve columnas, conservando cada solicitud alineada en su fila.
+ * No hace nada si ya se aplico antes.
+ */
+function migrarPeriodoCantidad_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
+  if (!hoja) {
+    SpreadsheetApp.getUi().alert('No existe la hoja "' + HOJA_SOLICITUDES + '". Ejecuta primero Cotizador BDB > Inicializar hojas.');
+    return;
+  }
+  var huboCambios = false;
+
+  if (hoja.getRange(1, 10).getValue() === 'Volumen') {
+    hoja.deleteColumn(10);
+    huboCambios = true;
+  }
+
+  if (hoja.getRange(1, 12).getValue() !== 'Periodo de Cantidad') {
+    hoja.insertColumnBefore(12);
+    hoja.getRange(1, 12).setValue('Periodo de Cantidad')
+      .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
+    huboCambios = true;
+  }
+
+  SpreadsheetApp.getUi().alert(
+    huboCambios
+      ? 'Listo. Se quito la columna "Volumen" y se agrego "Periodo de Cantidad" en Solicitudes, sin perder las solicitudes ya guardadas.'
+      : 'No habia nada que migrar: Solicitudes ya tiene "Periodo de Cantidad" y no tiene "Volumen".'
   );
 }
 
@@ -528,8 +563,8 @@ function setupSolicitudes_() {
   sheet.clear();
 
   var headers = [
-    'Fecha', 'Cliente', 'Referencia de Ruta', 'Alcance', 'Modalidad', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia', 'Volumen',
-    'Kilometros', 'Tipo de Cobro', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
+    'Fecha', 'Cliente', 'Referencia de Ruta', 'Alcance', 'Modalidad', 'Punto A', 'Punto B', 'Tipo de Unidad', 'Frecuencia',
+    'Kilometros', 'Tipo de Cobro', 'Periodo de Cantidad', 'Cantidad', 'Requiere Auxiliar', 'Estacion MELI',
     'Puesto Principal', 'Puesto Auxiliar', 'Costo Casetas', 'Casetas Estimadas', 'Viajes al Mes',
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',
     'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total',

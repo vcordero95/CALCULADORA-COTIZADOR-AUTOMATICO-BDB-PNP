@@ -25,9 +25,14 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
   - **Tarifa nueva** (calcular desde cero): captura Cliente, **Alcance**
     (Local/Foráneo) y **Modalidad** (Dedicada, Spot, Service Partner,
     Line Haul, Media Milla, XPT) por separado — cualquier Modalidad
-    puede ser Local o Foránea —, Tipo de Unidad, Frecuencia, Volumen
-    (cantidad de paquetes), km, Tipo de Cobro y si necesita auxiliar; y
-    Punto A / Punto B solo si la Modalidad es Line Haul, Media Milla,
+    puede ser Local o Foránea —, Tipo de Unidad, Frecuencia, km, Tipo de
+    Cobro y si necesita auxiliar. Si el Tipo de Cobro no es "Por Ruta"
+    (Por Paquete/Por Parada/Por Palet), se despliega Cantidad con su
+    Periodo (Por Día o Por Semana, según como lo haya pedido el
+    cliente): si es Por Semana, se divide entre los viajes por semana de
+    la Frecuencia para convertirla a cantidad por viaje antes de sacar
+    la Tarifa por Unidad. Punto A / Punto B solo si la Modalidad es Line
+    Haul, Media Milla,
     Service Partner o XPT (rutas de punto a punto; Dedicada y Spot no
     los piden). Según la Modalidad, el sistema calcula distinto:
     - **Dedicada, Spot, Line Haul, Media Milla**: motor de costos completo
@@ -204,9 +209,10 @@ calculan ambas tarifas con la política fija de `Config` — **Tarifa Piso**
 (Margen Piso, 20%) y **Tarifa Objetivo** (Margen Objetivo, 30%).
 
 Si el Tipo de Cobro no es "Por Ruta" (Por Paquete, Por Parada o Por
-Palet), además se calcula cada una entre la Cantidad capturada:
+Palet), además se calcula cada una entre la Cantidad capturada (ya
+convertida a cantidad por viaje si se capturó "Por Semana"):
 
-6. **Tarifa por unidad (Piso/Objetivo)** = Tarifa (Piso/Objetivo) ÷ Cantidad (paquetes/paradas/palets).
+6. **Tarifa por unidad (Piso/Objetivo)** = Tarifa (Piso/Objetivo) ÷ Cantidad por viaje.
 
 ### Cómo resuelve solo el dashboard de Comercial
 

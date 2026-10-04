@@ -98,7 +98,7 @@
       font-size: 12px;
     }
     #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
-    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b { display: none; }
+    #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad { display: none; }
   </style>
 </head>
 <body>
@@ -175,19 +175,8 @@
 
         <div class="fila-doble">
           <div>
-            <label for="volumen">Volumen <span class="ayuda">(cantidad de paquetes)</span></label>
-            <input type="number" id="volumen" min="0" step="1" placeholder="Ej. 120">
-          </div>
-          <div>
             <label for="tipoCobro">Tipo de Cobro</label>
             <select id="tipoCobro" required></select>
-          </div>
-        </div>
-
-        <div class="fila-doble">
-          <div>
-            <label for="cantidad">Cantidad <span class="ayuda">(paquetes/paradas/palets)</span></label>
-            <input type="number" id="cantidad" min="0" step="1" value="0">
           </div>
           <div>
             <label for="requiereAuxiliar">¿Requiere auxiliar?</label>
@@ -195,6 +184,17 @@
               <option value="no">No</option>
               <option value="si">Sí</option>
             </select>
+          </div>
+        </div>
+
+        <div class="fila-doble" id="campo-cantidad">
+          <div>
+            <label for="periodoCantidad">Periodo</label>
+            <select id="periodoCantidad" required></select>
+          </div>
+          <div>
+            <label for="cantidad" id="etiqueta-cantidad">Cantidad</label>
+            <input type="number" id="cantidad" min="0" step="1" value="0">
           </div>
         </div>
 
@@ -323,9 +323,26 @@
       ocultarResultados();
     }
 
+    var ETIQUETAS_CANTIDAD = {
+      'Por Paquete': 'Cantidad de Paquetes',
+      'Por Parada': 'Cantidad de Paradas',
+      'Por Palet': 'Cantidad de Palets'
+    };
+
     function actualizarVisibilidadCampos() {
       var cliente = document.getElementById('cliente').value;
       var modalidad = document.getElementById('modalidad').value;
+      var tipoCobro = document.getElementById('tipoCobro').value;
+
+      var llevaCantidad = tipoCobro !== 'Por Ruta';
+      var campoCantidad = document.getElementById('campo-cantidad');
+      var cantidadInput = document.getElementById('cantidad');
+      campoCantidad.style.display = llevaCantidad ? 'flex' : 'none';
+      cantidadInput.required = llevaCantidad;
+      document.getElementById('etiqueta-cantidad').textContent = ETIQUETAS_CANTIDAD[tipoCobro] || 'Cantidad';
+      if (!llevaCantidad) {
+        cantidadInput.value = 0;
+      }
 
       var esNuevoCliente = cliente === 'Nuevo Cliente';
       document.getElementById('campo-nuevo-cliente').style.display = esNuevoCliente ? 'block' : 'none';
@@ -360,6 +377,7 @@
           poblarOpciones(document.getElementById('tipoUnidad'), catalogos.unidades);
           poblarOpciones(document.getElementById('frecuencia'), catalogos.frecuencias);
           poblarOpciones(document.getElementById('tipoCobro'), catalogos.tiposCobro);
+          poblarOpciones(document.getElementById('periodoCantidad'), catalogos.periodosCantidad);
           poblarOpciones(document.getElementById('cliente'), catalogos.clientes);
           poblarOpciones(document.getElementById('estacionMeli'), catalogos.estacionesMeli);
 
@@ -379,6 +397,7 @@
     document.getElementById('modo').addEventListener('change', actualizarVisibilidadModo);
     document.getElementById('modalidad').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('cliente').addEventListener('change', actualizarVisibilidadCampos);
+    document.getElementById('tipoCobro').addEventListener('change', actualizarVisibilidadCampos);
     document.getElementById('clienteExistente').addEventListener('change', actualizarVisibilidadExistente);
 
     function mostrarError(error) {
@@ -496,9 +515,9 @@
         puntoB: document.getElementById('puntoB').value.trim(),
         tipoUnidad: document.getElementById('tipoUnidad').value,
         frecuencia: document.getElementById('frecuencia').value,
-        volumen: Number(document.getElementById('volumen').value) || '',
         km: Number(document.getElementById('km').value),
         tipoCobro: document.getElementById('tipoCobro').value,
+        periodoCantidad: document.getElementById('periodoCantidad').value,
         cantidad: Number(document.getElementById('cantidad').value),
         estacionMeli: document.getElementById('estacionMeli').value,
         requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si'

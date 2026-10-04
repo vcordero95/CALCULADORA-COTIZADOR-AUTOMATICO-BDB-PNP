@@ -8,6 +8,7 @@ function onOpen() {
     .addItem('Cargar/actualizar Tarifas Vigentes y MELI', 'cargarTarifasVigentes')
     .addItem('Agregar columna INEGI (sin borrar datos)', 'migrarCodigoVehiculoInegi_')
     .addItem('Activar actualizacion semanal de precios de combustible (INEGI)', 'activarActualizacionCombustibleInegi_')
+    .addItem('Quitar Volumen y agregar Periodo de Cantidad en Solicitudes', 'migrarPeriodoCantidad_')
     .addSeparator()
     .addItem('Abrir dashboard Comercial', 'abrirDashboardComercial')
     .addItem('Abrir dashboard interno (costos)', 'abrirDashboardInterno')
