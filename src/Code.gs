@@ -16,17 +16,24 @@ function onOpen() {
 }
 
 /**
- * Crea (o reinicia) solo "Tarifas Vigentes", "MELI Estaciones" y
- * "MELI Tarifas", sin tocar Costos Unidad, Nomina, Zonas, Ruta-Zona-Puesto,
- * Cotizador ni Solicitudes. Util para cargar/actualizar esas 3 hojas sin
- * arriesgar los costos reales que ya se hayan capturado con
- * "Inicializar hojas".
+ * Crea (o reinicia) solo "Tarifas Vigentes", "MELI Estaciones",
+ * "MELI Tarifas" y "Amazon Tarifas", sin tocar Costos Unidad, Nomina,
+ * Zonas, Ruta-Zona-Puesto, Cotizador ni Solicitudes. Util para cargar/
+ * actualizar esas hojas sin arriesgar los costos reales que ya se hayan
+ * capturado con "Inicializar hojas". Ya no hace falta usar esto para
+ * agregar tarifas nuevas del dia a dia: las busquedas leen directo de
+ * la hoja, asi que esas se pueden agregar ahi a mano sin pasar por el
+ * codigo. Este boton sigue siendo destructivo (borra y reescribe estas
+ * 4 hojas desde el catalogo semilla del codigo), asi que solo se usa
+ * cuando Vanessa confirma que no tiene capturas manuales pendientes en
+ * ellas que se perderian.
  */
 function cargarTarifasVigentes() {
   setupTarifasVigentes_();
   setupMeliEstaciones_();
   setupMeliTarifas_();
-  SpreadsheetApp.getUi().alert('Listo. Se cargaron/actualizaron "Tarifas Vigentes", "MELI Estaciones" y "MELI Tarifas".');
+  setupAmazonTarifas_();
+  SpreadsheetApp.getUi().alert('Listo. Se cargaron/actualizaron "Tarifas Vigentes", "MELI Estaciones", "MELI Tarifas" y "Amazon Tarifas".');
 }
 
 /**

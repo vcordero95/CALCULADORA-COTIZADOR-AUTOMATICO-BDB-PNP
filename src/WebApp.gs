@@ -47,9 +47,15 @@ function obtenerCatalogosComercial() {
     .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
   var clientes = obtenerClientesTarifasVigentes_();
+  var estacionesAmazon = obtenerEstacionesAmazon_();
+  if (estacionesAmazon.length && clientes.indexOf('Amazon') === -1) {
+    clientes.push('Amazon');
+  }
+  clientes.sort();
   clientes.push('Nuevo Cliente');
 
   var estacionesMeli = obtenerListaEstacionesMeli_();
+  var ciclosAmazon = obtenerCiclosAmazon_();
 
   return {
     puntos: puntos,
@@ -63,7 +69,9 @@ function obtenerCatalogosComercial() {
     tiposServicioExistente: TIPOS_SERVICIO_EXISTENTE,
     tiposServicioGridNivel: TIPOS_SERVICIO_GRID_NIVEL,
     clientes: clientes,
-    estacionesMeli: estacionesMeli
+    estacionesMeli: estacionesMeli,
+    estacionesAmazon: estacionesAmazon,
+    ciclosAmazon: ciclosAmazon
   };
 }
 
@@ -190,17 +198,24 @@ function calcularSolicitudWeb(datos) {
  * de Nivel + Vehiculo + Km (Estacion MELI), igual que en "Tarifa
  * Nueva"; el resto filtra la hoja Tarifas Vigentes por esa modalidad y,
  * si se captura, por Estacion/Ruta, para regresar solo la tarifa
- * pedida. Para cualquier otro Cliente se mantiene el comportamiento
- * simple de antes: se muestra directo todo lo que tiene registrado, sin
- * pedir Tipo de Servicio (no tienen tantas filas como para necesitarlo).
- * Es el modo "Tarifa existente" del dashboard de Comercial.
+ * pedida. Amazon tiene su propio rate card (hoja "Amazon Tarifas") por
+ * Estacion + Ciclo + Tipo de Vehiculo, resuelto aparte. Para cualquier
+ * otro Cliente se mantiene el comportamiento simple de antes: se
+ * muestra directo todo lo que tiene registrado, sin pedir Tipo de
+ * Servicio (no tienen tantas filas como para necesitarlo). Es el modo
+ * "Tarifa existente" del dashboard de Comercial.
  */
 function buscarTarifaExistenteWeb(datos) {
   try {
     var referenciasVigentes = [];
     var tarifaMeli = null;
+    var tarifaAmazon = null;
 
-    if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
+    if (datos.cliente === 'Amazon') {
+      if (datos.estacionAmazon && datos.cicloAmazon && datos.tipoVehiculoAmazon) {
+        tarifaAmazon = buscarTarifaAmazon_(datos.estacionAmazon, datos.cicloAmazon, datos.tipoVehiculoAmazon);
+      }
+    } else if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
       if (datos.cliente === 'Mercado Libre' && datos.tipoServicio) {
         if (TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1) {
           if (datos.estacionMeli && datos.tipoUnidad && datos.km) {
@@ -214,9 +229,19 @@ function buscarTarifaExistenteWeb(datos) {
       }
     }
 
-    return { referenciasVigentes: referenciasVigentes, tarifaMeli: tarifaMeli };
+    return { referenciasVigentes: referenciasVigentes, tarifaMeli: tarifaMeli, tarifaAmazon: tarifaAmazon };
   } catch (e) {
     return { error: e.message || String(e) };
+  }
+}
+
+/** Tipos de Vehiculo de Amazon disponibles para el Ciclo elegido (varian por ciclo). */
+function obtenerVehiculosAmazonWeb(ciclo) {
+  try {
+    if (!ciclo) return [];
+    return obtenerVehiculosAmazon_(ciclo);
+  } catch (e) {
+    return [];
   }
 }
 

@@ -197,6 +197,22 @@ tarifario de la empresa — solo dentro del Sheet, no en git):
   dedicadas de Mercado Libre.
 - **MELI Tarifas** — tarifa vigente por Vehículo × Nivel × rango de km,
   para rutas dedicadas de Mercado Libre.
+- **Amazon Tarifas** — Rate Card DSP de Amazon Logistics Mexico por
+  Estación (DMT6, DMT4 — misma tarifa para ambas) × Ciclo (Cycle 1,
+  Same Day, MCO, Late Same Day, Nursery) × Tipo de Vehículo, con
+  Tarifa Final y Tarifa Final con Helper (solo donde Amazon la ofrece).
+  Por ahora solo tiene la Zona 3; se agregan más zonas según se vayan
+  pasando.
+
+Estas 4 hojas de referencia se pueden editar directo (agregar tarifas,
+clientes, estaciones o ciclos nuevos) sin tocar el script: las
+búsquedas y los catálogos de los dashboards siempre leen lo que
+realmente hay en la hoja en ese momento, no un tamaño fijo. El menú
+**Cotizador BDB → Cargar/actualizar Tarifas Vigentes y MELI** sigue
+existiendo pero es destructivo (borra y reescribe estas 4 hojas desde
+el catálogo semilla del código), así que ya no hace falta para el
+día a día — solo se usa cuando Vanessa confirma que no tiene capturas
+manuales pendientes que se perderían.
 
 Registros (se llenan solos desde los dashboards, como historial):
 
