@@ -6,6 +6,7 @@ function onOpen() {
     .createMenu('Cotizador BDB')
     .addItem('Inicializar hojas (borra y reconstruye todo)', 'initializeProject')
     .addItem('Cargar/actualizar Tarifas Vigentes y MELI', 'cargarTarifasVigentes')
+    .addItem('Agregar columna INEGI (sin borrar datos)', 'migrarCodigoVehiculoInegi_')
     .addSeparator()
     .addItem('Abrir dashboard Comercial', 'abrirDashboardComercial')
     .addItem('Abrir dashboard interno (costos)', 'abrirDashboardInterno')

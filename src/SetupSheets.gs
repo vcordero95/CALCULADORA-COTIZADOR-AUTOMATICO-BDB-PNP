@@ -198,6 +198,60 @@ function setupCostosUnidad_() {
 }
 
 /**
+ * Agrega la columna "Codigo Vehiculo INEGI" en Costos Unidad y el Token
+ * INEGI en Config, SIN borrar nada de lo que ya este capturado (a
+ * diferencia de "Inicializar hojas"). Pensada para cuando ya existen
+ * datos reales en el spreadsheet y solo hace falta sumar estas dos
+ * columnas nuevas de la integracion con la API de Ruteo de INEGI. No
+ * hace nada si ya se aplico antes (deja los valores que Vanessa haya
+ * ajustado).
+ */
+function migrarCodigoVehiculoInegi_() {
+  var ss = SpreadsheetApp.getActive();
+  var huboCambios = false;
+
+  var configSheet = ss.getSheetByName(HOJA_CONFIG);
+  if (configSheet && configSheet.getRange(8, 1).getValue() === '') {
+    configSheet.getRange(8, 1, 1, 2).setValues(
+      [['Token INEGI (API Ruteo SAKBE)', 'kqvCNH1V-keUF-rSVa-O1tf-gdqFN6DynMNN']]
+    );
+    configSheet.getRange(8, 1).setFontWeight('bold');
+    huboCambios = true;
+  }
+
+  var costosSheet = ss.getSheetByName(HOJA_COSTOS_UNIDAD);
+  if (costosSheet && costosSheet.getRange(1, 9).getValue() === '') {
+    costosSheet.getRange(1, 9).setValue('Codigo Vehiculo INEGI')
+      .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
+
+    var codigoVehiculoRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], true)
+      .setAllowInvalid(false).build();
+    costosSheet.getRange(2, 9, FILAS_CATALOGO, 1).setDataValidation(codigoVehiculoRule);
+
+    // Para las filas con Tipo de Unidad ya capturado, precarga un default
+    // razonable (1 Automovil para "Auto", 5 Camion dos ejes para el
+    // resto) para que no se quede vacio y bloquee el calculo; Vanessa
+    // puede ajustarlo despues por unidad.
+    var tipos = costosSheet.getRange(2, 1, FILAS_CATALOGO, 1).getValues();
+    var defaults = tipos.map(function(fila) {
+      var tipo = String(fila[0] || '');
+      if (tipo === '') return [''];
+      return [/auto/i.test(tipo) && !/van/i.test(tipo) ? 1 : 5];
+    });
+    costosSheet.getRange(2, 9, FILAS_CATALOGO, 1).setValues(defaults);
+    costosSheet.autoResizeColumns(9, 1);
+    huboCambios = true;
+  }
+
+  SpreadsheetApp.getUi().alert(
+    huboCambios
+      ? 'Listo. Se agrego la columna "Codigo Vehiculo INEGI" en Costos Unidad y/o el Token INEGI en Config, sin tocar tus datos existentes.'
+      : 'No habia nada que migrar: ya tienes la columna "Codigo Vehiculo INEGI" y el Token INEGI.'
+  );
+}
+
+/**
  * "Nomina": catalogo por Puesto / Categoria de Sueldo (NO por Tipo de
  * Unidad). Incluye puestos principales y de auxiliar; cual aplica a cada
  * ruta se resuelve en "Alcance-Puesto".
