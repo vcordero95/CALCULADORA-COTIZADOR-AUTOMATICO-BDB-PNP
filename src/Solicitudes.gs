@@ -79,11 +79,18 @@ function buscarIdDestinoInegi_(nombreLugar, token) {
       payload: { buscar: nombreLugar, type: 'json', num: 1, key: token },
       muteHttpExceptions: true
     });
-    if (respuesta.getResponseCode() !== 200) return null;
+    if (respuesta.getResponseCode() !== 200) {
+      console.error('INEGI buscadestino "' + nombreLugar + '" HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText());
+      return null;
+    }
     var datos = JSON.parse(respuesta.getContentText());
-    if (!datos.response || !datos.response.success || !datos.data || !datos.data.length) return null;
+    if (!datos.response || !datos.response.success || !datos.data || !datos.data.length) {
+      console.error('INEGI buscadestino "' + nombreLugar + '" sin match: ' + respuesta.getContentText());
+      return null;
+    }
     return datos.data[0].id_dest;
   } catch (e) {
+    console.error('INEGI buscadestino "' + nombreLugar + '" excepcion: ' + e.message);
     return null;
   }
 }
@@ -98,7 +105,11 @@ function buscarIdDestinoInegi_(nombreLugar, token) {
  */
 function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
   var token = obtenerTokenInegi_();
-  if (!token || !puntoA || !puntoB) return null;
+  if (!token) {
+    console.error('INEGI: falta el Token INEGI en Config!B8.');
+    return null;
+  }
+  if (!puntoA || !puntoB) return null;
 
   var idA = buscarIdDestinoInegi_(puntoA, token);
   var idB = buscarIdDestinoInegi_(puntoB, token);
@@ -110,11 +121,18 @@ function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
       payload: { dest_i: idA, dest_f: idB, v: codigoVehiculo, type: 'json', key: token },
       muteHttpExceptions: true
     });
-    if (respuesta.getResponseCode() !== 200) return null;
+    if (respuesta.getResponseCode() !== 200) {
+      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText());
+      return null;
+    }
     var datos = JSON.parse(respuesta.getContentText());
-    if (!datos.response || !datos.response.success || !datos.data) return null;
+    if (!datos.response || !datos.response.success || !datos.data) {
+      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' fallo: ' + respuesta.getContentText());
+      return null;
+    }
     return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
   } catch (e) {
+    console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' excepcion: ' + e.message);
     return null;
   }
 }
