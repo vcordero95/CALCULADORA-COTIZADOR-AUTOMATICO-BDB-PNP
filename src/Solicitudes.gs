@@ -93,7 +93,7 @@ function buscarIdDestinoInegi_(nombreLugar, token) {
   try {
     var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino', {
       method: 'post',
-      payload: { buscar: nombreNormalizado, type: 'json', num: 1, key: token },
+      payload: { buscar: nombreNormalizado, type: 'json', num: '1', key: token },
       muteHttpExceptions: true
     });
     if (respuesta.getResponseCode() !== 200) {
