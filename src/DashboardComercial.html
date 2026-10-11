@@ -363,6 +363,9 @@
   <script>
     var ultimoCalculo = null;
     var modalidadesConPuntoAB = [];
+    var modalidadesConCasetaINEGI = ['Line Haul', 'Media Milla'];
+    var tokenInegi = '';
+    var codigoVehiculoPorUnidad = {};
 
     function money(n) {
       return '$' + Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -560,6 +563,8 @@
           poblarOpciones(document.getElementById('cicloAmazonExistente'), catalogos.ciclosAmazon);
 
           modalidadesConPuntoAB = catalogos.modalidadesConPuntoAB;
+          tokenInegi = catalogos.tokenInegi;
+          codigoVehiculoPorUnidad = catalogos.codigoVehiculoPorUnidad || {};
           todosTiposServicioExistente = catalogos.tiposServicioExistente;
           tiposServicioGridNivel = catalogos.tiposServicioGridNivel;
           poblarTipoServicioParaCliente_();
@@ -726,7 +731,70 @@
       mostrarReferenciasYMeli(resultado.referenciasVigentes, resultado.tarifaMeli, cliente, resultado.tarifaAmazon);
     }
 
-    document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
+    /**
+     * Quita acentos y puntos antes de mandarlo a INEGI (su buscador no
+     * reconoce "Querétaro" ni "N.L.", pero si "Queretaro" y "NL").
+     * Misma logica que normalizarParaInegi_ en Solicitudes.gs.
+     */
+    function normalizarParaInegiCliente_(texto) {
+      return String(texto || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/\./g, '')
+        .trim();
+    }
+
+    /**
+     * Busca el id_dest de un lugar directo desde el navegador. La API de
+     * Ruteo de INEGI permite llamadas desde el navegador (manda
+     * "Access-Control-Allow-Origin: *"), y eso resulta mucho mas
+     * confiable que llamarla desde el servidor de Apps Script (su
+     * firewall parece tratar distinto el trafico que viene de nubes
+     * como Google). Regresa null ante cualquier falla, sin romper nada.
+     */
+    async function buscarIdDestinoInegiCliente_(nombreLugar) {
+      if (!tokenInegi) return null;
+      try {
+        var cuerpo = new URLSearchParams({
+          buscar: normalizarParaInegiCliente_(nombreLugar), type: 'json', num: '1', key: tokenInegi
+        });
+        var respuesta = await fetch('https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino', { method: 'POST', body: cuerpo });
+        if (!respuesta.ok) return null;
+        var datos = await respuesta.json();
+        if (!datos.response || !datos.response.success || !datos.data || !datos.data.length) return null;
+        return datos.data[0].id_dest;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /**
+     * Resuelve el costo de caseta y el km reales de Punto A -> Punto B
+     * desde el navegador (ver buscarIdDestinoInegiCliente_). Regresa
+     * null si INEGI no logra identificar algun punto o si falla la
+     * consulta; el servidor cae a su propio respaldo (catalogo Casetas
+     * o estimado por km) cuando esto regresa null.
+     */
+    async function consultarCostoCasetaInegiCliente_(puntoA, puntoB, codigoVehiculo) {
+      if (!tokenInegi || !puntoA || !puntoB) return null;
+      var idA = await buscarIdDestinoInegiCliente_(puntoA);
+      var idB = await buscarIdDestinoInegiCliente_(puntoB);
+      if (!idA || !idB) return null;
+
+      try {
+        var cuerpo = new URLSearchParams({
+          dest_i: idA, dest_f: idB, v: String(codigoVehiculo || '5'), type: 'json', key: tokenInegi
+        });
+        var respuesta = await fetch('https://gaia.inegi.org.mx/sakbe_v3.1/cuota', { method: 'POST', body: cuerpo });
+        if (!respuesta.ok) return null;
+        var datos = await respuesta.json();
+        if (!datos.response || !datos.response.success || !datos.data) return null;
+        return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    document.getElementById('form-solicitud').addEventListener('submit', async function (ev) {
       ev.preventDefault();
       var datos = {
         correo: document.getElementById('correoSolicitante').value.trim(),
@@ -746,16 +814,25 @@
         estacionMeli: document.getElementById('estacionMeli').value,
         requiereAuxiliar: document.getElementById('requiereAuxiliar').value === 'si'
       };
-      ultimoCalculo = { datos: datos, resultado: null };
 
-      document.getElementById('btn-calcular').disabled = true;
-      document.getElementById('btn-calcular').textContent = 'Calculando...';
+      var boton = document.getElementById('btn-calcular');
+      boton.disabled = true;
+
+      if (datos.puntoA && datos.puntoB && modalidadesConCasetaINEGI.indexOf(datos.modalidad) !== -1) {
+        boton.textContent = 'Calculando ruta (INEGI)...';
+        datos.casetaResueltaCliente = await consultarCostoCasetaInegiCliente_(
+          datos.puntoA, datos.puntoB, codigoVehiculoPorUnidad[datos.tipoUnidad]
+        );
+      }
+
+      ultimoCalculo = { datos: datos, resultado: null };
+      boton.textContent = 'Calculando...';
 
       google.script.run
         .withSuccessHandler(mostrarResultado)
         .withFailureHandler(function (error) {
-          document.getElementById('btn-calcular').disabled = false;
-          document.getElementById('btn-calcular').textContent = 'Calcular tarifa';
+          boton.disabled = false;
+          boton.textContent = 'Calcular tarifa';
           mostrarError(error);
         })
         .calcularSolicitudWeb(datos);

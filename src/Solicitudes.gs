@@ -383,7 +383,7 @@ function obtenerMargenesPolitica_() {
  *
  * @return {Object} Desglose completo de la solicitud.
  */
-function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, periodoCantidad, requiereAuxiliar) {
+function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecuencia, km, tipoCobro, cantidad, periodoCantidad, requiereAuxiliar, casetaResueltaCliente) {
   var filaUnidad = buscarUnidadPorTipo_(tipoUnidad);
   if (!filaUnidad) {
     throw new Error('Tipo de unidad "' + tipoUnidad + '" no esta en la hoja "' + HOJA_COSTOS_UNIDAD + '".');
@@ -435,7 +435,20 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   var mantenimientoMensual = Number(filaUnidad[3]) || 0;
   var gasolinaKm = Number(filaUnidad[7]) || 0;
   var codigoVehiculo = filaUnidad[8];
-  var infoCasetas = resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo);
+
+  // Si el navegador de Comercial ya resolvio la ruta contra la API de
+  // Ruteo de INEGI (ver el JS de DashboardComercial.html: INEGI permite
+  // llamadas desde el navegador via CORS, y eso resulta mucho mas
+  // confiable que llamarla desde el servidor de Apps Script), se usa
+  // ese resultado directo en vez de que el servidor la intente nuevamente.
+  var infoCasetas = (MODALIDADES_CON_CASETA.indexOf(modalidad) !== -1 && casetaResueltaCliente && casetaResueltaCliente.costo != null)
+    ? {
+        costo: Number(casetaResueltaCliente.costo) || 0,
+        estimado: true,
+        fuente: 'API de Ruteo de INEGI (SAKBE), resuelto desde el navegador',
+        km: Number(casetaResueltaCliente.km) || null
+      }
+    : resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo);
   var costoCasetas = infoCasetas.costo;
 
   // Si la API de Ruteo de INEGI pudo resolver la ruta, su kilometraje es

@@ -43,8 +43,11 @@ function obtenerCatalogosComercial() {
   var puntos = obtenerHojaPuntos_().getRange(2, 1, FILAS_PUNTOS, 1).getValues()
     .map(function (fila) { return fila[0]; }).filter(soloLlenos);
 
-  var unidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 1)
-    .getValues().map(function (fila) { return fila[0]; }).filter(soloLlenos);
+  var filasUnidades = obtenerHojaCostosUnidad_().getRange(2, 1, FILAS_CATALOGO, 9).getValues()
+    .filter(function (fila) { return soloLlenos(fila[0]); });
+  var unidades = filasUnidades.map(function (fila) { return fila[0]; });
+  var codigoVehiculoPorUnidad = {};
+  filasUnidades.forEach(function (fila) { codigoVehiculoPorUnidad[fila[0]] = fila[8]; });
 
   var clientes = obtenerClientesTarifasVigentes_();
   var estacionesAmazon = obtenerEstacionesAmazon_();
@@ -71,7 +74,9 @@ function obtenerCatalogosComercial() {
     clientes: clientes,
     estacionesMeli: estacionesMeli,
     estacionesAmazon: estacionesAmazon,
-    ciclosAmazon: ciclosAmazon
+    ciclosAmazon: ciclosAmazon,
+    codigoVehiculoPorUnidad: codigoVehiculoPorUnidad,
+    tokenInegi: obtenerTokenInegi_()
   };
 }
 
@@ -176,7 +181,7 @@ function calcularSolicitudWeb(datos) {
 
     var resultado = SOLICITAR_TARIFA(
       datos.alcance, datos.modalidad, datos.puntoA, datos.puntoB, datos.tipoUnidad, datos.frecuencia, datos.km,
-      datos.tipoCobro, datos.cantidad, datos.periodoCantidad, !!datos.requiereAuxiliar
+      datos.tipoCobro, datos.cantidad, datos.periodoCantidad, !!datos.requiereAuxiliar, datos.casetaResueltaCliente
     );
 
     resultado.esBusquedaTarifa = false;
