@@ -97,7 +97,7 @@
       border-radius: 8px;
       font-size: 12px;
     }
-    #seccion-modo-existente, #seccion-resultado, #seccion-vigentes, #seccion-error,
+    #seccion-modo-existente, #seccion-modo-historial, #seccion-resultado, #seccion-vigentes, #seccion-error,
     #campo-nuevo-cliente, #campo-estacion-meli, #fila-tarifas-unidad, #campo-meli-existente, #campo-punto-a-b, #campo-cantidad, #campo-estacion-ruta-existente, #campo-tipo-servicio-existente, #campo-amazon-existente, #bloque-tarifa-amazon { display: none; }
   </style>
 </head>
@@ -111,11 +111,15 @@
       <select id="modo">
         <option value="nueva">Tarifa nueva (calcular desde cero)</option>
         <option value="existente">Tarifa existente (buscar en el tarifario)</option>
+        <option value="historial">Mi historial de solicitudes</option>
       </select>
     </div>
 
     <div class="card" id="seccion-modo-nueva">
       <form id="form-solicitud">
+        <label for="correoSolicitante">Tu correo</label>
+        <input type="email" id="correoSolicitante" required placeholder="tu.nombre@bdbcompany.com">
+
         <div class="fila-doble">
           <div>
             <label for="cliente">Cliente</label>
@@ -152,14 +156,15 @@
 
         <div class="fila-doble" id="campo-punto-a-b">
           <div>
-            <label for="puntoA">Punto A <span class="ayuda">(origen; escribe cualquier ciudad)</span></label>
-            <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Guadalajara">
+            <label for="puntoA">Punto A <span class="ayuda">(origen; Ciudad, Estado)</span></label>
+            <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Jalpan, Querétaro">
           </div>
           <div>
-            <label for="puntoB">Punto B <span class="ayuda">(destino; escribe cualquier ciudad)</span></label>
-            <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey">
+            <label for="puntoB">Punto B <span class="ayuda">(destino; Ciudad, Estado)</span></label>
+            <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey, Nuevo León">
           </div>
           <datalist id="lista-puntos"></datalist>
+          <p class="ayuda" style="margin: -4px 0 8px;">Agrega el Estado para que el sistema identifique el lugar correcto y calcule los km solo (ej. "Jalpan, Querétaro" en vez de solo "Jalpan").</p>
         </div>
 
         <div class="fila-doble">
@@ -168,7 +173,7 @@
             <select id="frecuencia" required></select>
           </div>
           <div>
-            <label for="km">Kilómetros</label>
+            <label for="km" id="etiqueta-km">Kilómetros</label>
             <input type="number" id="km" min="0" step="0.1" required>
           </div>
         </div>
@@ -258,6 +263,24 @@
       </form>
     </div>
 
+    <div class="card" id="seccion-modo-historial">
+      <form id="form-historial">
+        <label for="correoHistorial">Tu correo</label>
+        <input type="email" id="correoHistorial" required placeholder="tu.nombre@bdbcompany.com">
+        <button type="submit" id="btn-historial">Ver mi historial</button>
+      </form>
+
+      <table class="tabla-referencia" id="tabla-historial" style="margin-top: 14px; display:none;">
+        <thead>
+          <tr><th>Fecha</th><th>Cliente</th><th>Ruta</th><th>Alcance / Modalidad</th><th>Tarifa Piso</th><th>Tarifa Objetivo</th><th>Estatus</th></tr>
+        </thead>
+        <tbody id="tabla-historial-body"></tbody>
+      </table>
+      <div class="mensaje-pendiente" id="mensaje-sin-historial" style="display:none;">
+        No hay solicitudes guardadas con ese correo todavía.
+      </div>
+    </div>
+
     <div class="card" id="seccion-resultado">
       <div class="fila-tarifas">
         <div class="tarifa-piso">
@@ -280,6 +303,7 @@
         </div>
       </div>
       <table>
+        <tr id="fila-km" style="display:none;"><td id="etiqueta-km-resultado">Kilómetros</td><td id="r-km"></td></tr>
         <tr><td>Puesto principal</td><td id="r-puestoPrincipal"></td></tr>
         <tr><td>Puesto auxiliar</td><td id="r-puestoAuxiliar"></td></tr>
         <tr><td id="etiqueta-costoCasetas">Costo casetas</td><td id="r-costoCasetas"></td></tr>
@@ -368,6 +392,7 @@
       var modo = document.getElementById('modo').value;
       document.getElementById('seccion-modo-nueva').style.display = modo === 'nueva' ? 'block' : 'none';
       document.getElementById('seccion-modo-existente').style.display = modo === 'existente' ? 'block' : 'none';
+      document.getElementById('seccion-modo-historial').style.display = modo === 'historial' ? 'block' : 'none';
       ocultarResultados();
     }
 
@@ -409,6 +434,10 @@
         puntoA.value = '';
         puntoB.value = '';
       }
+
+      document.getElementById('etiqueta-km').innerHTML = esPuntoAPuntoB
+        ? 'Kilómetros <span class="ayuda">(de respaldo; si Punto A/B se identifican bien, se recalcula solo)</span>'
+        : 'Kilómetros';
     }
 
     var todosTiposServicioExistente = [];
@@ -645,6 +674,15 @@
         filaUnidad.style.display = 'none';
       }
 
+      var filaKm = document.getElementById('fila-km');
+      if (resultado.km != null) {
+        filaKm.style.display = 'table-row';
+        document.getElementById('r-km').textContent = Number(resultado.km).toFixed(1);
+        document.getElementById('etiqueta-km-resultado').textContent = 'Kilómetros (' + resultado.kmFuente + ')';
+      } else {
+        filaKm.style.display = 'none';
+      }
+
       document.getElementById('r-puestoPrincipal').textContent = resultado.puestoPrincipal;
       document.getElementById('r-puestoAuxiliar').textContent = resultado.puestoAuxiliar || '—';
       document.getElementById('r-costoCasetas').textContent = money(resultado.costoCasetas);
@@ -679,6 +717,7 @@
     document.getElementById('form-solicitud').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var datos = {
+        correo: document.getElementById('correoSolicitante').value.trim(),
         cliente: document.getElementById('cliente').value,
         nuevoClienteNombre: document.getElementById('nuevoClienteNombre').value,
         rutaCliente: document.getElementById('rutaCliente').value,
@@ -769,6 +808,56 @@
         })
         .guardarSolicitudWeb(ultimoCalculo.datos, ultimoCalculo.resultado);
     });
+
+    document.getElementById('form-historial').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var correo = document.getElementById('correoHistorial').value.trim();
+      var boton = document.getElementById('btn-historial');
+      boton.disabled = true;
+      boton.textContent = 'Buscando...';
+
+      google.script.run
+        .withSuccessHandler(function (historial) {
+          boton.disabled = false;
+          boton.textContent = 'Ver mi historial';
+          mostrarHistorial(historial);
+        })
+        .withFailureHandler(function (error) {
+          boton.disabled = false;
+          boton.textContent = 'Ver mi historial';
+          mostrarError(error);
+        })
+        .obtenerHistorialPorCorreoWeb(correo);
+    });
+
+    function mostrarHistorial(historial) {
+      document.getElementById('seccion-error').style.display = 'none';
+      var tabla = document.getElementById('tabla-historial');
+      var sinHistorial = document.getElementById('mensaje-sin-historial');
+
+      if (!historial || !historial.length) {
+        tabla.style.display = 'none';
+        sinHistorial.style.display = 'block';
+        return;
+      }
+
+      sinHistorial.style.display = 'none';
+      tabla.style.display = 'table';
+      var cuerpo = document.getElementById('tabla-historial-body');
+      cuerpo.innerHTML = '';
+      historial.forEach(function (s) {
+        var fila = document.createElement('tr');
+        fila.innerHTML =
+          '<td>' + (s.fecha || '') + '</td>' +
+          '<td>' + (s.cliente || '') + '</td>' +
+          '<td>' + (s.referencia || '') + (s.puntoA ? (' (' + s.puntoA + ' - ' + s.puntoB + ')') : '') + '</td>' +
+          '<td>' + (s.alcance || '') + ' / ' + (s.modalidad || '') + '</td>' +
+          '<td>' + (s.tarifaPiso !== '' ? money(s.tarifaPiso) : '—') + '</td>' +
+          '<td>' + (s.tarifaObjetivo !== '' ? money(s.tarifaObjetivo) : '—') + '</td>' +
+          '<td>' + (s.estatus || 'Pendiente') + '</td>';
+        cuerpo.appendChild(fila);
+      });
+    }
 
     cargarCatalogos();
   </script>

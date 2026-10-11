@@ -9,6 +9,8 @@ function onOpen() {
     .addItem('Agregar columna INEGI (sin borrar datos)', 'migrarCodigoVehiculoInegi_')
     .addItem('Activar actualizacion semanal de precios de combustible (INEGI)', 'activarActualizacionCombustibleInegi_')
     .addItem('Quitar Volumen y agregar Periodo de Cantidad en Solicitudes', 'migrarPeriodoCantidad_')
+    .addItem('Agregar Correo/Estatus en Solicitudes (sin borrar datos)', 'migrarCorreoEstatusSolicitudes_')
+    .addItem('Activar notificaciones de aprobacion por correo', 'activarNotificacionesAprobacion_')
     .addSeparator()
     .addItem('Abrir dashboard Comercial', 'abrirDashboardComercial')
     .addItem('Abrir dashboard interno (costos)', 'abrirDashboardInterno')
@@ -34,6 +36,34 @@ function cargarTarifasVigentes() {
   setupMeliTarifas_();
   setupAmazonTarifas_();
   SpreadsheetApp.getUi().alert('Listo. Se cargaron/actualizaron "Tarifas Vigentes", "MELI Estaciones", "MELI Tarifas" y "Amazon Tarifas".');
+}
+
+/**
+ * Activa (una sola vez) el disparador que detecta cuando Vanessa cambia
+ * el Estatus de una solicitud (columna "Estatus" de Solicitudes) a
+ * "Aprobada" o "Rechazada", y le avisa por correo a quien la pidio (via
+ * su "Correo Solicitante"). Si ya esta activo, no lo duplica. Requiere
+ * haber agregado antes esas columnas con "Agregar Correo/Estatus en
+ * Solicitudes".
+ */
+function activarNotificacionesAprobacion_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'onEditAprobacionSolicitud_') {
+      SpreadsheetApp.getUi().alert('Las notificaciones de aprobacion por correo ya estan activas.');
+      return;
+    }
+  }
+
+  ScriptApp.newTrigger('onEditAprobacionSolicitud_')
+    .forSpreadsheet(SpreadsheetApp.getActive())
+    .onEdit()
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    'Listo. Cuando cambies el Estatus de una solicitud a "Aprobada" o "Rechazada" en la hoja Solicitudes, ' +
+    'se le avisa por correo a quien la pidio (si capturo su correo).'
+  );
 }
 
 /**

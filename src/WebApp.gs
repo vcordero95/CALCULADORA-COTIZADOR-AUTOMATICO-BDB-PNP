@@ -235,6 +235,45 @@ function buscarTarifaExistenteWeb(datos) {
   }
 }
 
+/**
+ * Historial de solicitudes guardadas por un correo (comparacion exacta,
+ * sin distinguir mayusculas): para la pestaña "Mi historial" del
+ * dashboard de Comercial, donde cada quien revisa lo que ha pedido y en
+ * que Estatus va (Pendiente/Aprobada/Rechazada).
+ */
+function obtenerHistorialPorCorreoWeb(correo) {
+  try {
+    var correoBuscado = String(correo || '').trim().toLowerCase();
+    if (!correoBuscado) return [];
+
+    var sheet = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
+    if (!sheet) return [];
+
+    var filas = Math.max(0, sheet.getLastRow() - 1);
+    if (filas === 0) return [];
+
+    var datos = sheet.getRange(2, 1, filas, COLUMNA_ESTATUS_SOLICITUDES).getValues();
+    var resultado = [];
+    for (var i = 0; i < datos.length; i++) {
+      var fila = datos[i];
+      var correoFila = String(fila[COLUMNA_CORREO_SOLICITANTE - 1] || '').trim().toLowerCase();
+      if (correoFila !== correoBuscado) continue;
+
+      resultado.push({
+        fecha: fila[0] instanceof Date ? Utilities.formatDate(fila[0], Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(fila[0] || ''),
+        cliente: fila[1], referencia: fila[2], alcance: fila[3], modalidad: fila[4],
+        puntoA: fila[5], puntoB: fila[6],
+        tarifaPiso: fila[29], tarifaObjetivo: fila[30],
+        estatus: fila[COLUMNA_ESTATUS_SOLICITUDES - 1] || 'Pendiente'
+      });
+    }
+    resultado.reverse();
+    return resultado;
+  } catch (e) {
+    return [];
+  }
+}
+
 /** Tipos de Vehiculo de Amazon disponibles para el Ciclo elegido (varian por ciclo). */
 function obtenerVehiculosAmazonWeb(ciclo) {
   try {
@@ -283,6 +322,10 @@ function guardarSolicitudWeb_(datos, resultado) {
   if (!sheet) {
     throw new Error('No existe la hoja "Solicitudes". Ejecuta Cotizador BDB > Inicializar hojas.');
   }
+  var correo = String(datos.correo || '').trim();
+  if (!correo) {
+    throw new Error('Captura tu correo para poder guardar la solicitud.');
+  }
 
   var fila = sheet.getLastRow() + 1;
   var clienteRegistrado = datos.cliente === 'Nuevo Cliente'
@@ -290,22 +333,25 @@ function guardarSolicitudWeb_(datos, resultado) {
     : (datos.cliente || '');
   var tarifaVigenteRegistrada = resultado.tarifaMeli ? resultado.tarifaMeli.tarifa : '';
 
-  sheet.getRange(fila, 1, 1, 34).setValues([[
+  sheet.getRange(fila, 1, 1, 36).setValues([[
     new Date(), clienteRegistrado, datos.rutaCliente || '', datos.alcance || '', datos.modalidad,
     datos.puntoA || '', datos.puntoB || '', datos.tipoUnidad,
-    datos.frecuencia || '', Number(datos.km) || '', datos.tipoCobro || '', datos.periodoCantidad || '', Number(datos.cantidad) || '',
+    datos.frecuencia || '', (resultado.km != null ? resultado.km : Number(datos.km) || ''), datos.tipoCobro || '', datos.periodoCantidad || '', Number(datos.cantidad) || '',
     datos.requiereAuxiliar ? 'Si' : 'No', datos.estacionMeli || '',
     resultado.puestoPrincipal || '', resultado.puestoAuxiliar || '', resultado.costoCasetas || '',
     resultado.casetasEstimadas ? 'Si' : 'No', resultado.viajesMes || '',
     resultado.sueldoMensual || '', resultado.rentaMensual || '', resultado.mantenimientoMensual || '', resultado.costoGasolinaKm || '',
     resultado.costoVariable || '', resultado.costoFijoProrrateado || '', resultado.costoTotal || '',
     resultado.margenPiso || '', resultado.margenObjetivo || '', resultado.tarifaPiso || '', resultado.tarifaObjetivo || '',
-    resultado.tarifaPorUnidadPiso || '', resultado.tarifaPorUnidadObjetivo || '', tarifaVigenteRegistrada
+    resultado.tarifaPorUnidadPiso || '', resultado.tarifaPorUnidadObjetivo || '', tarifaVigenteRegistrada,
+    correo, 'Pendiente'
   ]]);
 
   if (resultado.casetasEstimadas && datos.puntoA && datos.puntoB) {
     agregarCasetaAprendida_(datos.puntoA, datos.puntoB, resultado.costoCasetas);
   }
+
+  enviarCorreoNuevaSolicitud_(fila, datos, resultado, correo, clienteRegistrado);
 
   return { ok: true };
 }

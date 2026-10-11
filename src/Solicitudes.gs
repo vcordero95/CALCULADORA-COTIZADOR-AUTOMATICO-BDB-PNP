@@ -225,7 +225,7 @@ function activarActualizacionCombustibleInegi_() {
  */
 function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
   if (MODALIDADES_CON_CASETA.indexOf(modalidad) === -1) {
-    return { costo: 0, estimado: false, fuente: 'No aplica para Modalidad "' + modalidad + '"' };
+    return { costo: 0, estimado: false, fuente: 'No aplica para Modalidad "' + modalidad + '"', km: null };
   }
 
   var resultadoInegi = (puntoA && puntoB) ? consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) : null;
@@ -233,13 +233,14 @@ function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
     return {
       costo: resultadoInegi.costo,
       estimado: true,
-      fuente: 'API de Ruteo de INEGI (SAKBE), en vivo — ' + resultadoInegi.km + ' km'
+      fuente: 'API de Ruteo de INEGI (SAKBE), en vivo',
+      km: resultadoInegi.km
     };
   }
 
   var filaExacta = (puntoA && puntoB) ? buscarCasetasExacto_(puntoA, puntoB) : null;
   if (filaExacta) {
-    return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: (filaExacta[3] || '') + ' (INEGI no respondio, se uso el catalogo Casetas)' };
+    return { costo: Number(filaExacta[2]) || 0, estimado: false, fuente: (filaExacta[3] || '') + ' (INEGI no respondio, se uso el catalogo Casetas)', km: null };
   }
 
   var costoPorKm = obtenerCostoCasetasPorKm_();
@@ -247,7 +248,8 @@ function resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo) {
   return {
     costo: costoPorKm * kilometros,
     estimado: true,
-    fuente: 'Estimado a ' + costoPorKm + ' $/km (INEGI no respondio y la ruta no esta en el catalogo Casetas)'
+    fuente: 'Estimado a ' + costoPorKm + ' $/km (INEGI no respondio y la ruta no esta en el catalogo Casetas)',
+    km: null
   };
 }
 
@@ -378,7 +380,14 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   var infoCasetas = resolverCostoCasetas_(modalidad, puntoA, puntoB, km, codigoVehiculo);
   var costoCasetas = infoCasetas.costo;
 
-  var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, km, viajesMes, costoCasetas);
+  // Si la API de Ruteo de INEGI pudo resolver la ruta, su kilometraje es
+  // mas confiable que lo que Comercial haya tecleado a mano (esa es la
+  // ruta real entre Punto A y Punto B, no una estimacion); si no, se usa
+  // el km capturado.
+  var kmUsado = infoCasetas.km != null ? infoCasetas.km : (Number(km) || 0);
+  var kmFuente = infoCasetas.km != null ? 'Calculado por la API de Ruteo de INEGI' : 'Capturado por Comercial';
+
+  var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, kmUsado, viajesMes, costoCasetas);
 
   var margenes = obtenerMargenesPolitica_();
   var tarifaPiso = aplicarMargen_(r.costoTotal, margenes.piso);
@@ -402,6 +411,8 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
     costoCasetas: costoCasetas,
     casetasEstimadas: infoCasetas.estimado,
     casetasFuente: infoCasetas.fuente,
+    km: kmUsado,
+    kmFuente: kmFuente,
     viajesMes: viajesMes,
     sueldoMensual: sueldoMensual,
     rentaMensual: rentaMensual,
@@ -417,5 +428,92 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
     tarifaPorUnidadPiso: tarifaPorUnidadPiso,
     tarifaPorUnidadObjetivo: tarifaPorUnidadObjetivo
   };
+}
+
+/** "$#,##0.00" para texto plano (correos), sin depender de formato de celda. */
+function formatoMoneda_(valor) {
+  var n = Number(valor) || 0;
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Avisa a Vanessa por correo cuando Comercial guarda una solicitud
+ * nueva, con los datos clave para revisarla. Nunca interrumpe el
+ * guardado si el correo falla (cuota de MailApp agotada, etc.).
+ */
+function enviarCorreoNuevaSolicitud_(fila, datos, resultado, correo, clienteRegistrado) {
+  try {
+    var esBusqueda = !!resultado.esBusquedaTarifa;
+    var asunto = 'Nueva solicitud de tarifa — ' + clienteRegistrado + ' (fila ' + fila + ')';
+    var cuerpo = 'Se guardo una solicitud nueva en el Cotizador BDB.\n\n' +
+      'Solicitada por: ' + correo + '\n' +
+      'Cliente: ' + clienteRegistrado + '\n' +
+      'Referencia de ruta: ' + (datos.rutaCliente || '-') + '\n' +
+      'Alcance / Modalidad: ' + (datos.alcance || '-') + ' / ' + (datos.modalidad || '-') + '\n' +
+      (datos.puntoA ? ('Punto A / Punto B: ' + datos.puntoA + ' -> ' + datos.puntoB + '\n') : '') +
+      'Tipo de Unidad: ' + (datos.tipoUnidad || '-') + '\n\n' +
+      (esBusqueda
+        ? 'Es busqueda de tarifa estandarizada (Service Partner/XPT), no calculo de costo.\n' +
+          (resultado.tarifaMeli ? ('Tarifa vigente MELI (' + resultado.tarifaMeli.nivel + '): ' + formatoMoneda_(resultado.tarifaMeli.tarifa) + '\n') : '')
+        : 'Tarifa Piso: ' + formatoMoneda_(resultado.tarifaPiso) + '\n' +
+          'Tarifa Objetivo: ' + formatoMoneda_(resultado.tarifaObjetivo) + '\n') +
+      '\nRevisala y cambia su Estatus (Pendiente/Aprobada/Rechazada) en la hoja Solicitudes, fila ' + fila + ', ' +
+      'para que el sistema le avise el resultado a quien la pidio.';
+
+    MailApp.sendEmail(CORREO_VANESSA, asunto, cuerpo);
+  } catch (e) {
+    // No interrumpir el guardado si el correo no se pudo enviar.
+  }
+}
+
+/**
+ * Disparador instalable (se activa desde el menu con
+ * activarNotificacionesAprobacion_ en Code.gs): se dispara con
+ * cualquier edicion de cualquier hoja, pero solo actua si fue la
+ * columna Estatus de Solicitudes y el valor nuevo es "Aprobada" o
+ * "Rechazada" — ahi le avisa por correo a quien pidio esa solicitud.
+ * Nunca interrumpe la edicion si el correo falla.
+ */
+function onEditAprobacionSolicitud_(e) {
+  try {
+    var range = e.range;
+    var hoja = range.getSheet();
+    if (hoja.getName() !== HOJA_SOLICITUDES) return;
+    if (range.getColumn() !== COLUMNA_ESTATUS_SOLICITUDES) return;
+    var fila = range.getRow();
+    if (fila < 2) return;
+
+    var estatus = String(range.getValue() || '').trim();
+    if (estatus !== 'Aprobada' && estatus !== 'Rechazada') return;
+
+    enviarCorreoResultadoSolicitud_(hoja, fila, estatus);
+  } catch (err) {
+    // No interrumpir la edicion si falla el envio del correo.
+  }
+}
+
+/** Correo a quien pidio la solicitud (identificado por su Correo Solicitante), avisando si fue Aprobada o Rechazada. */
+function enviarCorreoResultadoSolicitud_(hoja, fila, estatus) {
+  var datos = hoja.getRange(fila, 1, 1, COLUMNA_ESTATUS_SOLICITUDES).getValues()[0];
+  var correo = String(datos[COLUMNA_CORREO_SOLICITANTE - 1] || '').trim();
+  if (!correo) return;
+
+  var cliente = datos[1], referencia = datos[2], alcance = datos[3], modalidad = datos[4];
+  var tarifaPiso = datos[29], tarifaObjetivo = datos[30];
+
+  var asunto = 'Tu solicitud de tarifa (' + cliente + ') fue ' + estatus.toLowerCase();
+  var cuerpo = 'Hola,\n\n' +
+    'Tu solicitud de tarifa para "' + cliente + '"' + (referencia ? ' (' + referencia + ')' : '') +
+    ' [' + alcance + ' / ' + modalidad + '] fue ' + estatus.toUpperCase() + '.\n\n' +
+    (estatus === 'Aprobada'
+      ? 'Tarifa piso: ' + formatoMoneda_(tarifaPiso) + '\nTarifa objetivo: ' + formatoMoneda_(tarifaObjetivo) + '\n\n'
+      : '') +
+    'Este correo se genero automaticamente desde el Cotizador BDB.';
+
+  try {
+    MailApp.sendEmail(correo, asunto, cuerpo);
+  } catch (e) {
+    // No interrumpir si el correo no se puede enviar (direccion invalida, cuota, etc.).
+  }
 }
 

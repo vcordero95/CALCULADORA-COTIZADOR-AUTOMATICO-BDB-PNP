@@ -39,7 +39,12 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
       (resuelve el Puesto por Alcance, el costo de casetas — solo Line
       Haul/Media Milla — y los viajes al mes por frecuencia; calcula la
       Tarifa Piso 20% y la Tarifa Objetivo 30% con la política fija de
-      margen de la empresa).
+      margen de la empresa). Para Line Haul/Media Milla, si la API de
+      Ruteo de INEGI logra identificar Punto A y Punto B (mientras más
+      específico el nombre — "Ciudad, Estado" — mejor), el kilómetro que
+      regresa esa API manda sobre el que haya escrito Comercial, para no
+      depender de que alguien lo capture bien a mano; el resultado dice
+      de dónde salió el km usado.
     - **Service Partner**: es tarifa de red ya negociada con el cliente,
       no un costo de ruta (ver Hoja 9 del tarifario original: Tarifa Base
       + Diferenciador Foráneo = Total). En vez de calcular, se **busca**
@@ -51,20 +56,48 @@ Origen y contexto completo del proyecto: [docs/Hoja de Proyecto IA - Cotizador A
 
     Los resultados calculados (no las búsquedas) se guardan en la hoja
     **Solicitudes**.
-  - **Tarifa existente** (buscar en el tarifario): elige Cliente y
-    **Tipo de Servicio** (Last Mile, XPT, Dedicada, Spot, Service
-    Partner, Line Haul, Media Milla, Helper — "Last Mile" y "XPT" solo
-    aparecen para Mercado Libre). Si el Tipo de Servicio es Last Mile o
-    XPT, captura Estación + Tipo de Unidad + km y se resuelve con el
+  - **Tarifa existente** (buscar en el tarifario): elige Cliente. Para
+    Mercado Libre además elige **Tipo de Servicio** (Last Mile, XPT,
+    Dedicada, Spot, Service Partner, Line Haul, Helper). Si es Last Mile
+    o XPT, captura Estación + Tipo de Unidad + km y se resuelve con el
     grid de Nivel de `MELI Tarifas` (son el mismo cálculo, separados
     porque para el negocio son dos servicios distintos). Para el resto,
-    captura **Estación / Ruta** (texto libre, ej. "SCQ1", "Tapalpa",
-    "NACIONAL") y se busca en `Tarifas Vigentes` filtrando por esa
-    modalidad y esa estación/ruta — regresa solo la tarifa pedida, no
-    todo el tarifario del cliente. Nada de esto recalcula: solo busca lo
-    que ya está registrado.
+    elige **Estación / Ruta** de un desplegable con las que de verdad
+    están registradas (no texto libre) y se busca en `Tarifas Vigentes`
+    filtrando por esa modalidad — regresa solo la tarifa de esa estación,
+    no todo el tarifario del cliente. Para Amazon, elige Estación
+    (DMT6/DMT4) + Ciclo + Tipo de Vehículo y se busca en `Amazon
+    Tarifas` (Tarifa Final / Tarifa Final con Helper). Para cualquier
+    otro cliente se ve directo todo lo que tiene registrado. Nada de
+    esto recalcula: solo busca lo que ya está registrado.
+  - **Mi historial de solicitudes**: cualquiera que haya hecho una
+    solicitud puede escribir su correo y ver sus propias solicitudes
+    guardadas (fecha, cliente, ruta, tarifas y Estatus).
 
   Ambos modos comparten el dashboard por default (sin `?vista=`).
+
+### Registro y aprobación por correo
+
+Al guardar una solicitud en modo "Tarifa nueva", Comercial captura su
+correo (obligatorio). Eso dispara:
+
+1. La fila en `Solicitudes` se guarda con ese correo y Estatus
+   "Pendiente".
+2. A Vanessa le llega un correo con los datos clave de la solicitud.
+3. Vanessa revisa la fila en `Solicitudes` y cambia la celda de
+   **Estatus** a "Aprobada" o "Rechazada" (columna con lista
+   desplegable).
+4. Quien hizo la solicitud recibe un correo avisándole el resultado
+   (con la Tarifa Piso/Objetivo si fue aprobada).
+
+El paso 4 depende de un disparador instalable (menú **Cotizador BDB →
+Activar notificaciones de aprobación por correo**), que solo hace falta
+activar una vez — y de haber corrido antes **Agregar Correo/Estatus en
+Solicitudes** si la hoja Solicitudes es de antes de este cambio. Los
+correos salen desde la cuenta de Google de quien tenga la Web App
+desplegada (`executeAs: USER_DEPLOYING`), usando `MailApp`; si el envío
+falla (cuota, dirección inválida), nunca bloquea el guardado ni el
+cambio de Estatus, solo no llega el correo.
 
 La tarifa para proveedores de red externa **no** está incluida todavía
 (queda para después, como marca el brief original).

@@ -68,6 +68,19 @@ var TIPOS_SERVICIO_EXISTENTE = ['Last Mile', 'XPT', 'Dedicada', 'Spot', 'Service
 var TIPOS_SERVICIO_GRID_NIVEL = ['Last Mile', 'XPT'];
 
 /**
+ * Flujo de aprobacion por correo de Solicitudes: Comercial captura su
+ * correo al solicitar, la solicitud se guarda en "Pendiente", Vanessa
+ * recibe un correo con los datos, y al cambiar el Estatus a mano en la
+ * hoja Solicitudes (ver activarNotificacionesAprobacion_ en Code.gs) se
+ * le avisa por correo a quien la pidio. Los indices de columna son
+ * 1-based, del esquema de 36 columnas de setupSolicitudes_.
+ */
+var ESTATUS_SOLICITUD = ['Pendiente', 'Aprobada', 'Rechazada'];
+var COLUMNA_CORREO_SOLICITANTE = 35;
+var COLUMNA_ESTATUS_SOLICITUDES = 36;
+var CORREO_VANESSA = 'vcordero@bdbcompany.com';
+
+/**
  * Crea (o reinicia) todas las hojas del cotizador. Se corre una vez al
  * preparar el spreadsheet, o cuando se quiera regresar a la estructura
  * base.
@@ -294,6 +307,39 @@ function migrarPeriodoCantidad_() {
     huboCambios
       ? 'Listo. Se quito la columna "Volumen" y se agrego "Periodo de Cantidad" en Solicitudes, sin perder las solicitudes ya guardadas.'
       : 'No habia nada que migrar: Solicitudes ya tiene "Periodo de Cantidad" y no tiene "Volumen".'
+  );
+}
+
+/**
+ * Agrega "Correo Solicitante" y "Estatus" (con su validacion de lista)
+ * al final de la hoja Solicitudes, SIN borrar las filas ya guardadas.
+ * Necesario para el flujo de aprobacion por correo (ver
+ * activarNotificacionesAprobacion_ en Code.gs). No hace nada si ya se
+ * aplico antes.
+ */
+function migrarCorreoEstatusSolicitudes_() {
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_SOLICITUDES);
+  if (!hoja) {
+    SpreadsheetApp.getUi().alert('No existe la hoja "' + HOJA_SOLICITUDES + '". Ejecuta primero Cotizador BDB > Inicializar hojas.');
+    return;
+  }
+
+  if (hoja.getRange(1, COLUMNA_CORREO_SOLICITANTE).getValue() === 'Correo Solicitante' &&
+      hoja.getRange(1, COLUMNA_ESTATUS_SOLICITUDES).getValue() === 'Estatus') {
+    SpreadsheetApp.getUi().alert('No habia nada que migrar: Solicitudes ya tiene "Correo Solicitante" y "Estatus".');
+    return;
+  }
+
+  hoja.getRange(1, COLUMNA_CORREO_SOLICITANTE, 1, 2).setValues([['Correo Solicitante', 'Estatus']])
+    .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
+
+  var estatusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(false).build();
+  hoja.getRange(2, COLUMNA_ESTATUS_SOLICITUDES, 2000, 1).setDataValidation(estatusRule);
+
+  SpreadsheetApp.getUi().alert(
+    'Listo. Se agrego "Correo Solicitante" y "Estatus" en Solicitudes, sin perder las solicitudes ya guardadas. ' +
+    'Para que avise por correo al aprobar, activa tambien "Activar notificaciones de aprobacion por correo" del menu.'
   );
 }
 
@@ -580,11 +626,17 @@ function setupSolicitudes_() {
     'Sueldo Mensual', 'Renta Mensual', 'Mantenimiento Mensual', 'Costo Gasolina/KM',
     'Costo Variable', 'Costo Fijo Prorrateado', 'Costo Total',
     'Margen Piso', 'Margen Objetivo', 'Tarifa Piso', 'Tarifa Objetivo',
-    'Tarifa por Unidad (Piso)', 'Tarifa por Unidad (Objetivo)', 'Tarifa Vigente (referencia)'
+    'Tarifa por Unidad (Piso)', 'Tarifa por Unidad (Objetivo)', 'Tarifa Vigente (referencia)',
+    'Correo Solicitante', 'Estatus'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
+
+  var estatusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(false).build();
+  sheet.getRange(2, COLUMNA_ESTATUS_SOLICITUDES, 2000, 1).setDataValidation(estatusRule);
+
   sheet.autoResizeColumns(1, headers.length);
   return sheet;
 }
