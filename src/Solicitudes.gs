@@ -67,16 +67,33 @@ function obtenerTokenInegi_() {
 }
 
 /**
+ * Quita acentos y puntos de un nombre de lugar antes de mandarlo a
+ * INEGI: su buscador de destinos no reconoce caracteres acentuados
+ * ("Querétaro" no encuentra nada, pero "Queretaro" si) ni abreviaturas
+ * con punto ("N.L." no encuentra nada, pero "NL" si) — confirmado
+ * probando varias ciudades y estados en vivo contra su API. Sin esto,
+ * cualquier Punto A/B con acento (la mayoria de los nombres en Mexico)
+ * fallaba siempre y se caia al estimado por km.
+ */
+function normalizarParaInegi_(texto) {
+  return String(texto || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\./g, '')
+    .trim();
+}
+
+/**
  * Busca el id_dest de un lugar en la API de Ruteo de INEGI (funcion
  * buscadestino). Regresa null si no hay match o si la llamada falla,
  * para que el llamador siga con el estimado por km sin romper la
  * cotizacion.
  */
 function buscarIdDestinoInegi_(nombreLugar, token) {
+  var nombreNormalizado = normalizarParaInegi_(nombreLugar);
   try {
     var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino', {
       method: 'post',
-      payload: { buscar: nombreLugar, type: 'json', num: 1, key: token },
+      payload: { buscar: nombreNormalizado, type: 'json', num: 1, key: token },
       muteHttpExceptions: true
     });
     if (respuesta.getResponseCode() !== 200) {
