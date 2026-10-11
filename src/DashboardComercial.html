@@ -158,14 +158,13 @@
           <div class="fila-doble">
             <div>
               <label for="puntoA">Punto A</label>
-              <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Jalpan, Querétaro">
+              <input type="text" id="puntoA" autocomplete="off" placeholder="Ej. Jalpan, Querétaro">
             </div>
             <div>
               <label for="puntoB">Punto B</label>
-              <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey, Nuevo León">
+              <input type="text" id="puntoB" autocomplete="off" placeholder="Ej. Monterrey, Nuevo León">
             </div>
           </div>
-          <datalist id="lista-puntos"></datalist>
           <p class="ayuda" style="margin: 6px 0 10px; line-height: 1.5;">
             <strong>Punto A</strong> = origen, <strong>Punto B</strong> = destino. Escribe primero la
             <strong>Ciudad</strong> y después el <strong>Estado</strong>, separados por coma — ej.
@@ -547,7 +546,6 @@
         .withSuccessHandler(function (catalogos) {
           poblarOpciones(document.getElementById('alcance'), catalogos.alcances);
           poblarOpciones(document.getElementById('modalidad'), catalogos.modalidades);
-          poblarOpciones(document.getElementById('lista-puntos'), catalogos.puntos);
           poblarOpciones(document.getElementById('tipoUnidad'), catalogos.unidades);
           poblarOpciones(document.getElementById('frecuencia'), catalogos.frecuencias);
           poblarOpciones(document.getElementById('tipoCobro'), catalogos.tiposCobro);
