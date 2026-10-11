@@ -77,9 +77,34 @@ function obtenerTokenInegi_() {
  */
 function normalizarParaInegi_(texto) {
   return String(texto || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\./g, '')
     .trim();
+}
+
+/**
+ * Llama UrlFetchApp.fetch con reintentos: las llamadas de Apps Script a
+ * INEGI fallan de forma intermitente (el mismo request, con el mismo
+ * token, funciona siempre desde fuera de Apps Script pero a veces no
+ * desde Apps Script — probablemente el firewall de INEGI es mas
+ * estricto con trafico de nubes como Google), asi que un reintento
+ * corto resuelve la mayoria de esos casos sin que Comercial note nada.
+ */
+function fetchConReintentosInegi_(url, payload, intentos) {
+  var maxIntentos = intentos || 3;
+  var ultimoError = null;
+  for (var intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      var respuesta = UrlFetchApp.fetch(url, { method: 'post', payload: payload, muteHttpExceptions: true });
+      if (respuesta.getResponseCode() === 200) return respuesta;
+      ultimoError = 'HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText();
+    } catch (e) {
+      ultimoError = 'excepcion: ' + e.message;
+    }
+    if (intento < maxIntentos) Utilities.sleep(400 * intento);
+  }
+  console.error('INEGI ' + url + ' fallo tras ' + maxIntentos + ' intentos. ' + ultimoError);
+  return null;
 }
 
 /**
@@ -90,16 +115,12 @@ function normalizarParaInegi_(texto) {
  */
 function buscarIdDestinoInegi_(nombreLugar, token) {
   var nombreNormalizado = normalizarParaInegi_(nombreLugar);
+  var respuesta = fetchConReintentosInegi_(
+    'https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino',
+    { buscar: nombreNormalizado, type: 'json', num: '1', key: token }
+  );
+  if (!respuesta) return null;
   try {
-    var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/buscadestino', {
-      method: 'post',
-      payload: { buscar: nombreNormalizado, type: 'json', num: '1', key: token },
-      muteHttpExceptions: true
-    });
-    if (respuesta.getResponseCode() !== 200) {
-      console.error('INEGI buscadestino "' + nombreLugar + '" HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText());
-      return null;
-    }
     var datos = JSON.parse(respuesta.getContentText());
     if (!datos.response || !datos.response.success || !datos.data || !datos.data.length) {
       console.error('INEGI buscadestino "' + nombreLugar + '" sin match: ' + respuesta.getContentText());
@@ -107,7 +128,7 @@ function buscarIdDestinoInegi_(nombreLugar, token) {
     }
     return datos.data[0].id_dest;
   } catch (e) {
-    console.error('INEGI buscadestino "' + nombreLugar + '" excepcion: ' + e.message);
+    console.error('INEGI buscadestino "' + nombreLugar + '" excepcion al parsear: ' + e.message);
     return null;
   }
 }
@@ -132,41 +153,33 @@ function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
   var idB = buscarIdDestinoInegi_(puntoB, token);
   if (!idA || !idB) return null;
 
+  var respuesta = fetchConReintentosInegi_(
+    'https://gaia.inegi.org.mx/sakbe_v3.1/cuota',
+    { dest_i: idA, dest_f: idB, v: codigoVehiculo, type: 'json', key: token }
+  );
+  if (!respuesta) return null;
+
+  var texto = respuesta.getContentText();
   try {
-    var respuesta = UrlFetchApp.fetch('https://gaia.inegi.org.mx/sakbe_v3.1/cuota', {
-      method: 'post',
-      payload: { dest_i: idA, dest_f: idB, v: codigoVehiculo, type: 'json', key: token },
-      muteHttpExceptions: true
-    });
-    if (respuesta.getResponseCode() !== 200) {
-      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText());
+    var datos = JSON.parse(texto);
+    if (!datos.response || !datos.response.success || !datos.data) {
+      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' fallo: ' + texto);
       return null;
     }
-    var texto = respuesta.getContentText();
-    try {
-      var datos = JSON.parse(texto);
-      if (!datos.response || !datos.response.success || !datos.data) {
-        console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' fallo: ' + texto);
-        return null;
-      }
-      return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
-    } catch (errorParse) {
-      // Rutas muy largas regresan un geojson enorme; si el parse de todo
-      // el documento falla (respuesta cortada o con algun caracter que
-      // rompe el parser estricto), se rescatan los 2 numeros que
-      // realmente se necesitan directo del texto, sin depender de que
-      // el documento completo sea JSON valido.
-      var costoMatch = texto.match(/"costo_caseta":(-?[\d.]+)/);
-      var kmMatch = texto.match(/"long_km":(-?[\d.]+)/);
-      if (costoMatch && kmMatch) {
-        console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido (' + errorParse.message + '), rescatado por texto. Longitud respuesta: ' + texto.length);
-        return { costo: Number(costoMatch[1]) || 0, km: Number(kmMatch[1]) || 0 };
-      }
-      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido y no se pudo rescatar: ' + errorParse.message + '. Longitud respuesta: ' + texto.length);
-      return null;
+    return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
+  } catch (errorParse) {
+    // Rutas muy largas regresan un geojson enorme; si el parse de todo
+    // el documento falla (respuesta cortada o con algun caracter que
+    // rompe el parser estricto), se rescatan los 2 numeros que
+    // realmente se necesitan directo del texto, sin depender de que
+    // el documento completo sea JSON valido.
+    var costoMatch = texto.match(/"costo_caseta":(-?[\d.]+)/);
+    var kmMatch = texto.match(/"long_km":(-?[\d.]+)/);
+    if (costoMatch && kmMatch) {
+      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido (' + errorParse.message + '), rescatado por texto. Longitud respuesta: ' + texto.length);
+      return { costo: Number(costoMatch[1]) || 0, km: Number(kmMatch[1]) || 0 };
     }
-  } catch (e) {
-    console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' excepcion: ' + e.message);
+    console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido y no se pudo rescatar: ' + errorParse.message + '. Longitud respuesta: ' + texto.length);
     return null;
   }
 }
