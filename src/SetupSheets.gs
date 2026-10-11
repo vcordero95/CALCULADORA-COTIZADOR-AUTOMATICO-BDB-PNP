@@ -141,7 +141,7 @@ function setupConfig_() {
     ['Margen Piso', 0.2],
     ['Margen Objetivo', 0.3],
     ['Costo Casetas Estimado ($/km)', 4.0],
-    ['Token INEGI (API Ruteo SAKBE)', 'kqvCNH1V-keUF-rSVa-O1tf-gdqFN6DynMNN']
+    ['Token INEGI (API Ruteo SAKBE)', '6CmQjchN-0eOf-YoMp-WJfg-sTzPSwjzvOpX']
   ];
   sheet.getRange(1, 1, datos.length, 2).setValues(datos);
   sheet.getRange(1, 1, datos.length, 1).setFontWeight('bold');
@@ -238,7 +238,7 @@ function migrarCodigoVehiculoInegi_() {
   var configSheet = ss.getSheetByName(HOJA_CONFIG);
   if (configSheet && configSheet.getRange(8, 1).getValue() === '') {
     configSheet.getRange(8, 1, 1, 2).setValues(
-      [['Token INEGI (API Ruteo SAKBE)', 'kqvCNH1V-keUF-rSVa-O1tf-gdqFN6DynMNN']]
+      [['Token INEGI (API Ruteo SAKBE)', '6CmQjchN-0eOf-YoMp-WJfg-sTzPSwjzvOpX']]
     );
     configSheet.getRange(8, 1).setFontWeight('bold');
     huboCambios = true;
