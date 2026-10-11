@@ -154,17 +154,19 @@
           <div></div>
         </div>
 
-        <div class="fila-doble" id="campo-punto-a-b">
-          <div>
-            <label for="puntoA">Punto A <span class="ayuda">(origen; Ciudad, Estado)</span></label>
-            <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Jalpan, Querétaro">
-          </div>
-          <div>
-            <label for="puntoB">Punto B <span class="ayuda">(destino; Ciudad, Estado)</span></label>
-            <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey, Nuevo León">
+        <div id="campo-punto-a-b">
+          <div class="fila-doble">
+            <div>
+              <label for="puntoA">Punto A</label>
+              <input type="text" id="puntoA" list="lista-puntos" autocomplete="off" placeholder="Ej. Jalpan, Querétaro">
+            </div>
+            <div>
+              <label for="puntoB">Punto B</label>
+              <input type="text" id="puntoB" list="lista-puntos" autocomplete="off" placeholder="Ej. Monterrey, Nuevo León">
+            </div>
           </div>
           <datalist id="lista-puntos"></datalist>
-          <p class="ayuda" style="margin: -4px 0 8px;">
+          <p class="ayuda" style="margin: 6px 0 10px; line-height: 1.5;">
             <strong>Punto A</strong> = origen, <strong>Punto B</strong> = destino. Escribe primero la
             <strong>Ciudad</strong> y después el <strong>Estado</strong>, separados por coma — ej.
             "Jalpan, Querétaro" (no solo "Jalpan"). Así el sistema identifica el lugar correcto y calcula
@@ -432,7 +434,7 @@
       var esPuntoAPuntoB = modalidadesConPuntoAB.indexOf(modalidad) !== -1;
       var puntoA = document.getElementById('puntoA');
       var puntoB = document.getElementById('puntoB');
-      document.getElementById('campo-punto-a-b').style.display = esPuntoAPuntoB ? 'flex' : 'none';
+      document.getElementById('campo-punto-a-b').style.display = esPuntoAPuntoB ? 'block' : 'none';
       puntoA.required = esPuntoAPuntoB;
       puntoB.required = esPuntoAPuntoB;
       if (!esPuntoAPuntoB) {
