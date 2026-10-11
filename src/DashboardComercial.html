@@ -475,7 +475,10 @@
       tipoServicioSelect.required = esMeli;
 
       var tipoServicio = esMeli ? tipoServicioSelect.value : '';
-      var esGridNivel = esMeli && tiposServicioGridNivel.indexOf(tipoServicio) !== -1;
+      // "Dedicada" es grid de Nivel solo para Mercado Libre (es la misma
+      // tarifa que Last Mile/XPT, nombrada distinto); para cualquier
+      // otro cliente "Dedicada" si busca en Tarifas Vigentes.
+      var esGridNivel = esMeli && (tiposServicioGridNivel.indexOf(tipoServicio) !== -1 || tipoServicio === 'Dedicada');
 
       // Para clientes que no son Mercado Libre ni Amazon se mantiene el
       // comportamiento simple de antes: solo Cliente, se ve directo todo

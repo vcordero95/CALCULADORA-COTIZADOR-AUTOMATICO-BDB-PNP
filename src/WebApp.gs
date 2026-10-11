@@ -222,7 +222,11 @@ function buscarTarifaExistenteWeb(datos) {
       }
     } else if (datos.cliente && datos.cliente !== 'Nuevo Cliente') {
       if (datos.cliente === 'Mercado Libre' && datos.tipoServicio) {
-        if (TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1) {
+        // "Dedicada" es grid de Nivel solo para Mercado Libre (es la
+        // misma tarifa que Last Mile/XPT, nombrada distinto); para
+        // cualquier otro cliente "Dedicada" si busca modalidad RD en
+        // Tarifas Vigentes (ver coincideTipoServicioExistente_).
+        if (TIPOS_SERVICIO_GRID_NIVEL.indexOf(datos.tipoServicio) !== -1 || datos.tipoServicio === 'Dedicada') {
           if (datos.estacionMeli && datos.tipoUnidad && datos.km) {
             tarifaMeli = buscarTarifaMeliDedicada_(datos.estacionMeli, datos.tipoUnidad, datos.km);
           }
