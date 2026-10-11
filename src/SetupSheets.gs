@@ -324,22 +324,25 @@ function migrarCorreoEstatusSolicitudes_() {
     return;
   }
 
-  if (hoja.getRange(1, COLUMNA_CORREO_SOLICITANTE).getValue() === 'Correo Solicitante' &&
-      hoja.getRange(1, COLUMNA_ESTATUS_SOLICITUDES).getValue() === 'Estatus') {
-    SpreadsheetApp.getUi().alert('No habia nada que migrar: Solicitudes ya tiene "Correo Solicitante" y "Estatus".');
-    return;
-  }
+  var yaExistian = hoja.getRange(1, COLUMNA_CORREO_SOLICITANTE).getValue() === 'Correo Solicitante' &&
+      hoja.getRange(1, COLUMNA_ESTATUS_SOLICITUDES).getValue() === 'Estatus';
 
   hoja.getRange(1, COLUMNA_CORREO_SOLICITANTE, 1, 2).setValues([['Correo Solicitante', 'Estatus']])
     .setFontWeight('bold').setBackground('#1c2b4a').setFontColor('#ffffff');
 
+  // Se reaplica siempre, aunque ya existieran las columnas: asi, si se
+  // corre de nuevo despues de actualizar el codigo, se actualiza
+  // tambien la regla de validacion (ej. de bloquear a solo advertir),
+  // sin necesidad de un tercer boton solo para eso.
   var estatusRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(false).build();
+    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(true).build();
   hoja.getRange(2, COLUMNA_ESTATUS_SOLICITUDES, 2000, 1).setDataValidation(estatusRule);
 
   SpreadsheetApp.getUi().alert(
-    'Listo. Se agrego "Correo Solicitante" y "Estatus" en Solicitudes, sin perder las solicitudes ya guardadas. ' +
-    'Para que avise por correo al aprobar, activa tambien "Activar notificaciones de aprobacion por correo" del menu.'
+    yaExistian
+      ? 'Listo. Se actualizo la validacion de "Estatus" en Solicitudes (ahora solo advierte, no bloquea), sin perder nada.'
+      : 'Listo. Se agrego "Correo Solicitante" y "Estatus" en Solicitudes, sin perder las solicitudes ya guardadas. ' +
+        'Para que avise por correo al aprobar, activa tambien "Activar notificaciones de aprobacion por correo" del menu.'
   );
 }
 
@@ -634,7 +637,7 @@ function setupSolicitudes_() {
   sheet.setFrozenRows(1);
 
   var estatusRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(false).build();
+    .requireValueInList(ESTATUS_SOLICITUD, true).setAllowInvalid(true).build();
   sheet.getRange(2, COLUMNA_ESTATUS_SOLICITUDES, 2000, 1).setDataValidation(estatusRule);
 
   sheet.autoResizeColumns(1, headers.length);
