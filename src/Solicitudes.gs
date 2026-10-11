@@ -142,12 +142,29 @@ function consultarCostoCasetaInegi_(puntoA, puntoB, codigoVehiculo) {
       console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' HTTP ' + respuesta.getResponseCode() + ': ' + respuesta.getContentText());
       return null;
     }
-    var datos = JSON.parse(respuesta.getContentText());
-    if (!datos.response || !datos.response.success || !datos.data) {
-      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' fallo: ' + respuesta.getContentText());
+    var texto = respuesta.getContentText();
+    try {
+      var datos = JSON.parse(texto);
+      if (!datos.response || !datos.response.success || !datos.data) {
+        console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' fallo: ' + texto);
+        return null;
+      }
+      return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
+    } catch (errorParse) {
+      // Rutas muy largas regresan un geojson enorme; si el parse de todo
+      // el documento falla (respuesta cortada o con algun caracter que
+      // rompe el parser estricto), se rescatan los 2 numeros que
+      // realmente se necesitan directo del texto, sin depender de que
+      // el documento completo sea JSON valido.
+      var costoMatch = texto.match(/"costo_caseta":(-?[\d.]+)/);
+      var kmMatch = texto.match(/"long_km":(-?[\d.]+)/);
+      if (costoMatch && kmMatch) {
+        console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido (' + errorParse.message + '), rescatado por texto. Longitud respuesta: ' + texto.length);
+        return { costo: Number(costoMatch[1]) || 0, km: Number(kmMatch[1]) || 0 };
+      }
+      console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' JSON invalido y no se pudo rescatar: ' + errorParse.message + '. Longitud respuesta: ' + texto.length);
       return null;
     }
-    return { costo: Number(datos.data.costo_caseta) || 0, km: Number(datos.data.long_km) || 0 };
   } catch (e) {
     console.error('INEGI cuota ' + puntoA + ' -> ' + puntoB + ' excepcion: ' + e.message);
     return null;
