@@ -64,8 +64,8 @@ var PERIODOS_CANTIDAD = ['Por Día', 'Por Semana'];
  * filas reales de Tarifas Vigentes por esa modalidad/tipo de servicio y
  * la Estacion/Ruta capturada, para no mostrar toda la lista del cliente.
  */
-var TIPOS_SERVICIO_EXISTENTE = ['Last Mile', 'XPT', 'Dedicada', 'Spot', 'Service Partner', 'Line Haul', 'Helper'];
-var TIPOS_SERVICIO_GRID_NIVEL = ['Last Mile', 'XPT'];
+var TIPOS_SERVICIO_EXISTENTE = ['XPT', 'Dedicada', 'Spot', 'Service Partner', 'Line Haul', 'Helper'];
+var TIPOS_SERVICIO_GRID_NIVEL = ['XPT'];
 
 /**
  * Flujo de aprobacion por correo de Solicitudes: Comercial captura su
