@@ -3,35 +3,54 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --crema: #F4EFE9;
+      --rojo-bdb: #D41800;
+      --rojo-bdb-oscuro: #a81300;
+      --tinta: #111111;
+      --borde: #D9D2C7;
+      --texto-tenue: #7a7166;
+    }
     * { box-sizing: border-box; }
     body {
-      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-      background: #f4f6f9;
+      font-family: 'Nunito', 'Segoe UI', Arial, sans-serif;
+      background: var(--crema);
       margin: 0;
       padding: 24px 16px;
-      color: #1c2b4a;
+      color: var(--tinta);
     }
     .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .subtitulo { color: #5a6b85; margin: 0 0 24px; font-size: 14px; }
+    h1 { font-family: 'Lexend', sans-serif; font-size: 22px; font-weight: 700; margin: 0 0 4px; color: var(--tinta); }
+    .subtitulo {
+      font-family: 'JetBrains Mono', monospace; color: var(--texto-tenue); margin: 0 0 24px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
     .card {
       background: #ffffff;
+      border: 1px solid var(--borde);
       border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      box-shadow: 0 1px 3px rgba(17,17,17,0.06);
       margin-bottom: 16px;
     }
-    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    label { display: block; font-family: 'Lexend', sans-serif; font-size: 13px; font-weight: 600; margin: 12px 0 4px; color: var(--tinta); }
     label:first-child { margin-top: 0; }
-    .ayuda { font-weight: 400; color: #5a6b85; font-size: 11px; }
+    .ayuda { font-family: 'JetBrains Mono', monospace; font-weight: 400; color: var(--texto-tenue); font-size: 11px; }
     select, input {
       width: 100%;
       padding: 9px 10px;
-      border: 1px solid #cfd6e3;
+      border: 1px solid var(--borde);
       border-radius: 6px;
       font-size: 14px;
+      font-family: 'Nunito', sans-serif;
+      color: var(--tinta);
+      background: #ffffff;
     }
+    select:focus, input:focus { outline: none; border-color: var(--rojo-bdb); }
     .fila-doble { display: flex; gap: 12px; }
     .fila-doble > div { flex: 1; }
     button {
@@ -40,49 +59,54 @@
       padding: 11px;
       border: none;
       border-radius: 6px;
-      background: #1c2b4a;
+      background: var(--rojo-bdb);
       color: #ffffff;
+      font-family: 'Lexend', sans-serif;
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
     }
-    button:disabled { opacity: 0.6; cursor: default; }
-    button.secundario { background: #2b4a3f; }
+    button:hover:not(:disabled) { background: var(--rojo-bdb-oscuro); }
+    button:disabled { opacity: 0.55; cursor: default; }
+    button.secundario { background: var(--tinta); }
+    button.secundario:hover:not(:disabled) { background: #2a2a2a; }
     .fila-tarifas { display: flex; gap: 12px; margin-bottom: 14px; }
     .tarifa-piso {
       flex: 1;
       text-align: center;
       padding: 18px 10px;
       border-radius: 8px;
-      background: #1c2b4a;
+      background: var(--tinta);
       color: #ffffff;
     }
-    .tarifa-piso.objetivo { background: #2b4a3f; }
-    .tarifa-piso.unidad { background: #4a3a1c; }
-    .tarifa-piso .valor { font-size: 24px; font-weight: 700; }
-    .tarifa-piso .etiqueta { font-size: 12px; opacity: 0.85; }
+    .tarifa-piso.objetivo { background: var(--rojo-bdb); }
+    .tarifa-piso.unidad { background: #ffffff; border: 1px solid var(--borde); color: var(--tinta); }
+    .tarifa-piso.unidad .etiqueta { color: var(--texto-tenue); }
+    .tarifa-piso .valor { font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 700; }
+    .tarifa-piso .etiqueta { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.03em; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    table td, table th { padding: 6px 4px; border-bottom: 1px solid #eef1f6; text-align: left; }
+    table td, table th { padding: 6px 4px; border-bottom: 1px solid var(--borde); text-align: left; }
+    table th { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--texto-tenue); }
     table td:last-child, table th:last-child { text-align: right; font-weight: 600; }
     .tabla-referencia { font-size: 12px; }
-    .seccion-referencia h3 { font-size: 13px; margin: 0 0 6px; color: #5a6b85; }
+    .seccion-referencia h3 { font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 13px; margin: 0 0 6px; color: var(--texto-tenue); }
     .comparacion {
       display: flex; justify-content: space-between; align-items: center;
-      background: #eef1f6; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
+      background: var(--crema); border: 1px solid var(--borde); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
     }
-    .comparacion .valor { font-weight: 700; }
+    .comparacion .valor { font-family: 'Lexend', sans-serif; font-weight: 700; color: var(--rojo-bdb); }
     .mensaje-error {
       background: #fdecea;
-      border: 1px solid #f5b5ac;
-      color: #8a2418;
+      border: 1px solid var(--rojo-bdb);
+      color: #8a1200;
       padding: 12px 14px;
       border-radius: 8px;
       font-size: 14px;
     }
     .mensaje-ok {
-      background: #e8f5e9;
-      border: 1px solid #a8d5aa;
-      color: #245a27;
+      background: #eef6ea;
+      border: 1px solid #9fc38a;
+      color: #2f4a21;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 13px;
@@ -90,9 +114,9 @@
       text-align: center;
     }
     .mensaje-pendiente {
-      background: #fff8e1;
-      border: 1px solid #f2d98d;
-      color: #7a5c00;
+      background: #fdf6e3;
+      border: 1px solid var(--borde);
+      color: #6b5a00;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 12px;
@@ -357,6 +381,10 @@
     <div class="card" id="seccion-error">
       <div class="mensaje-error" id="texto-error"></div>
     </div>
+
+    <p style="text-align:center; font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--texto-tenue); letter-spacing:0.03em; margin-top: 8px;">
+      BDB LOGÍSTICA · Moviendo negocios, conectando caminos.
+    </p>
   </div>
 
   <script>
