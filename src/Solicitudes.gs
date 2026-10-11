@@ -387,6 +387,13 @@ function SOLICITAR_TARIFA(alcance, modalidad, puntoA, puntoB, tipoUnidad, frecue
   var kmUsado = infoCasetas.km != null ? infoCasetas.km : (Number(km) || 0);
   var kmFuente = infoCasetas.km != null ? 'Calculado por la API de Ruteo de INEGI' : 'Capturado por Comercial';
 
+  if (kmUsado <= 0) {
+    throw new Error(
+      'No se pudieron calcular los kilometros: la API de Ruteo de INEGI no identifico "' + puntoA + '" / "' + puntoB +
+      '" (intenta con el formato "Ciudad, Estado"), y tampoco se capturo un kilometraje manual. Captura los Kilometros a mano para continuar.'
+    );
+  }
+
   var r = calcularCostoRuta_(rentaMensual, mantenimientoMensual, gasolinaKm, sueldoMensual, kmUsado, viajesMes, costoCasetas);
 
   var margenes = obtenerMargenesPolitica_();

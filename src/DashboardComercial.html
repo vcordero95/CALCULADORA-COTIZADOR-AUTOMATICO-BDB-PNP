@@ -443,8 +443,13 @@
       }
 
       document.getElementById('etiqueta-km').innerHTML = esPuntoAPuntoB
-        ? 'Kilómetros <span class="ayuda">(de respaldo; si Punto A/B se identifican bien, se recalcula solo)</span>'
+        ? 'Kilómetros <span class="ayuda">(opcional; si Punto A/B se identifican bien, se calcula solo)</span>'
         : 'Kilómetros';
+      // Para Punto A/Punto B el km lo puede resolver INEGI solo, asi que
+      // deja de ser obligatorio (si INEGI no logra identificar la ruta,
+      // el servidor avisa que falta capturarlo a mano, en vez de que el
+      // navegador bloquee el envio sin dar oportunidad de intentarlo).
+      document.getElementById('km').required = !esPuntoAPuntoB;
     }
 
     var todosTiposServicioExistente = [];
